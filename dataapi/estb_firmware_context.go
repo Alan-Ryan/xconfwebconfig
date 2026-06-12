@@ -242,7 +242,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 	var accountId string
 	var accountType string
 	var accountData map[string]string
-	var macAddress string
+	var macAddress = contextMap[common.ESTB_MAC]
 
 	if Xc.EnableXacGroupService {
 		if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || contextMap[common.ACCOUNT_ID] == "" || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
@@ -330,7 +330,6 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	xconfTags := AddGroupServiceFTContext(Ws, common.ESTB_MAC, contextMap, true, fields)
 	CompareTaggingSources(contextMap, coastTags, xconfTags, fields)
-	//CompareAccountTagSources(contextMap,xconfTags)
 	log.Debug(fmt.Sprintf("AddEstbFirmwareContext ... end contextMap %v", contextMap))
 	return nil
 }
