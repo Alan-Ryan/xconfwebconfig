@@ -231,7 +231,10 @@ func IsBlank(str string) bool {
 	return strings.Trim(str, " ") == ""
 }
 
-func FormatRuleEvalStatus(ruleEvalReasons []string) string {
+func FormatRuleEvalReasons(ruleEvalReasons []string) string {
+	if len(ruleEvalReasons) == 0 {
+		return "unknown"
+	}
 	return strings.Join(ruleEvalReasons, "-")
 }
 
