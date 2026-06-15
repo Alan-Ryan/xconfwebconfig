@@ -275,6 +275,10 @@ func GetFeatureControlSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		ruleEvalReasons = []string{"precook"}
 	}
 	fields["ruleEval"] = util.FormatRuleEvalReasons(ruleEvalReasons)
+	log.WithFields(log.Fields{
+		"ruleEval":        fields["ruleEval"],
+		"ruleEvalReasons": ruleEvalReasons,
+	}).Info("DEBUG_RULEEVAL final path")
 	featureControlRuleBase.LogFeatureInfo(contextMap, appliedFeatureRules, featureControl.FeatureResponses, isLiveCalculated, fields)
 
 	if Ws.Config.GetBoolean("xconfwebconfig.xconf.enable_rfc_penetration_metrics", false) {
