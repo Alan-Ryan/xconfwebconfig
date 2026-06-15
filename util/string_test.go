@@ -300,7 +300,7 @@ func TestNormalizeMacAddress(t *testing.T) {
 	result = NormalizeMacAddress("")
 	assert.Equal(t, result, "") // Should return original if empty
 }
-func TestFormatRuleEvalStatus(t *testing.T) {
+func TestFormatRuleEvalReasons(t *testing.T) {
 	// Test with empty reasons
 	result := FormatRuleEvalReasons([]string{})
 	assert.Equal(t, result, "unknown")
