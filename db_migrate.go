@@ -51,6 +51,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
+	"math/big"
 	"os"
 	"strings"
 	"sync"
@@ -104,6 +106,12 @@ const (
 	// so 300 rows is ~30-36KB. The app's per-call cap is MaxBatchSizeV2 = 5000, but a
 	// smaller batch keeps us safely below the byte threshold.
 	tagMemberBatchSize = 300
+
+	// tagTokenSplits is the number of token-ring ranges the TagMembersBucketed scan is
+	// divided into. Having more ranges than workers (tagMigrateWorkers) gives good load
+	// balancing while keeping each range's scan reasonably short. Murmur3 distributes
+	// partition tokens uniformly, so equal-width ranges carry roughly equal data.
+	tagTokenSplits = 512
 )
 
 // tableMapping describes one old→new migration unit.
@@ -432,45 +440,69 @@ func migrateTagMetadata(session *gocql.Session, oldTable, newTable, srcKeyspace,
 	return count, nil
 }
 
-// migrateTagMembers reads members from the legacy TagMembersBucketed table using
-// concurrent workers. It first enumerates all (tag_id, bucket_id) partitions from
-// the source metadata table, then dispatches partition reads across a worker pool.
-// Each partition is read sequentially; workers process partitions in parallel.
+// tokenRange is a slice of the Cassandra token ring. It is half-open, (start, end], except
+// the first range which is [start, end] so the minimum token is not skipped.
+type tokenRange struct {
+	start int64
+	end   int64
+	first bool
+}
+
+// computeTokenRanges splits the full int64 token ring into n contiguous ranges of roughly
+// equal width. Murmur3 distributes partition tokens uniformly, so equal-width ranges carry
+// approximately equal data.
+func computeTokenRanges(n int) []tokenRange {
+	minTok := big.NewInt(math.MinInt64)
+	maxTok := big.NewInt(math.MaxInt64)
+	step := new(big.Int).Div(new(big.Int).Sub(maxTok, minTok), big.NewInt(int64(n)))
+
+	ranges := make([]tokenRange, 0, n)
+	cur := new(big.Int).Set(minTok)
+	for i := 0; i < n; i++ {
+		next := new(big.Int).Add(cur, step)
+		if i == n-1 {
+			next = maxTok // absorb rounding remainder into the final range
+		}
+		ranges = append(ranges, tokenRange{start: cur.Int64(), end: next.Int64(), first: i == 0})
+		cur = next
+	}
+	return ranges
+}
+
+// tagUpdatedFromCreated converts a legacy `created` value (Unix milliseconds, BIGINT) into
+// the timestamp written to the new `updated` column. A missing value falls back to now.
+func tagUpdatedFromCreated(v any) time.Time {
+	switch t := v.(type) {
+	case int64:
+		return time.UnixMilli(t)
+	case int:
+		return time.UnixMilli(int64(t))
+	default:
+		return time.Now()
+	}
+}
+
+// migrateTagMembers copies the legacy TagMembersBucketed table to the new table using a
+// parallel token-range scan. The token ring is split into tagTokenSplits ranges that are
+// dispatched to a worker pool. Scanning by token — rather than issuing one query per
+// (tag_id, bucket_id) partition — reads the whole table in a small number of paged round
+// trips. Because a partition's rows share a single token they arrive contiguously, so the
+// writes still go out as single-partition unlogged batches.
 func migrateTagMembers(session *gocql.Session, oldTable, newTable, srcKeyspace, tenantID string, dryRun bool) (int, error) {
-	// Enumerate all partitions from the old metadata table.
-	metaStmt := fmt.Sprintf(`SELECT tag_id, bucket_id FROM "%s"."%s"`, srcKeyspace, oldTable)
-	metaIter := session.Query(metaStmt).Iter()
+	ranges := computeTokenRanges(tagTokenSplits)
+	log.Printf("  %q: scanning %d token range(s) across %d worker(s)", oldTable, len(ranges), tagMigrateWorkers)
 
-	var partitions []tagPartition
-	for {
-		row := make(map[string]any)
-		if !metaIter.MapScan(row) {
-			break
-		}
-		tagID, _ := row["tag_id"].(string)
-		if tagID == "" {
-			continue
-		}
-		bucketID, _ := row["bucket_id"].(int)
-		partitions = append(partitions, tagPartition{tagID: tagID, bucketID: bucketID})
+	// Feed ranges to workers through a channel.
+	rangeCh := make(chan tokenRange, len(ranges))
+	for _, r := range ranges {
+		rangeCh <- r
 	}
-	if err := metaIter.Close(); err != nil {
-		return 0, fmt.Errorf("read TagBucketMetadata for partition list: %w", err)
-	}
-
-	log.Printf("  %q: found %d partition(s) to migrate with %d worker(s)", oldTable, len(partitions), tagMigrateWorkers)
-
-	// Feed partitions to workers through a channel.
-	partCh := make(chan tagPartition, len(partitions))
-	for _, p := range partitions {
-		partCh <- p
-	}
-	close(partCh)
+	close(rangeCh)
 
 	var totalCount int64
 	var totalErrors int64
-	var donePartitions int64
-	totalPartitions := int64(len(partitions))
+	var doneRanges int64
+	totalRanges := int64(len(ranges))
 	var wg sync.WaitGroup
 
 	writeStmt := fmt.Sprintf(`INSERT INTO "%s" (tenant_id, tag_id, bucket_id, member, updated) VALUES (?, ?, ?, ?, ?)`, newTable)
@@ -490,8 +522,8 @@ func migrateTagMembers(session *gocql.Session, oldTable, newTable, srcKeyspace, 
 			case <-stopHeartbeat:
 				return
 			case <-ticker.C:
-				log.Printf("  %q: progress %d/%d partitions, %d members, %d write error(s), elapsed %s",
-					oldTable, atomic.LoadInt64(&donePartitions), totalPartitions,
+				log.Printf("  %q: progress %d/%d token ranges, %d members, %d write error(s), elapsed %s",
+					oldTable, atomic.LoadInt64(&doneRanges), totalRanges,
 					atomic.LoadInt64(&totalCount), atomic.LoadInt64(&totalErrors),
 					time.Since(start).Round(time.Second))
 			}
@@ -502,84 +534,106 @@ func migrateTagMembers(session *gocql.Session, oldTable, newTable, srcKeyspace, 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for p := range partCh {
-				rows, errs := migrateTagPartition(session, srcKeyspace, oldTable, writeStmt, tenantID, p, dryRun)
-				atomic.AddInt64(&totalCount, int64(rows))
+			for r := range rangeCh {
+				errs := migrateTokenRange(session, srcKeyspace, oldTable, writeStmt, tenantID, r, dryRun, &totalCount)
 				atomic.AddInt64(&totalErrors, int64(errs))
-				atomic.AddInt64(&donePartitions, 1)
+				atomic.AddInt64(&doneRanges, 1)
 			}
 		}()
 	}
 	wg.Wait()
 	close(stopHeartbeat)
 	hbWg.Wait()
-	log.Printf("  %q: all %d partition(s) processed in %s", oldTable, totalPartitions, time.Since(start).Round(time.Second))
+	log.Printf("  %q: all %d token range(s) scanned in %s", oldTable, totalRanges, time.Since(start).Round(time.Second))
 
-	count := int(totalCount)
-	writeErrors := int(totalErrors)
-	logResult(dryRun, oldTable, newTable, count, writeErrors, fmt.Sprintf(" (%d partitions)", len(partitions)))
+	count := int(atomic.LoadInt64(&totalCount))
+	writeErrors := int(atomic.LoadInt64(&totalErrors))
+	logResult(dryRun, oldTable, newTable, count, writeErrors, fmt.Sprintf(" (%d token ranges)", len(ranges)))
 	return count, nil
 }
 
-// migrateTagPartition reads all members from a single legacy (tag_id, bucket_id) partition
-// and writes them to the new table. Members are written in single-partition unlogged batches
-// (all rows share the destination partition key tenant_id/tag_id/bucket_id) to cut round
-// trips. Returns the number of rows read and write errors.
-func migrateTagPartition(session *gocql.Session, srcKeyspace, oldTable, writeStmt, tenantID string, p tagPartition, dryRun bool) (int, int) {
-	readStmt := fmt.Sprintf(`SELECT member, created FROM "%s"."%s" WHERE tag_id = ? AND bucket_id = ?`, srcKeyspace, oldTable)
-	iter := session.Query(readStmt, p.tagID, p.bucketID).Iter()
+// migrateTokenRange scans one slice of the token ring of the legacy TagMembersBucketed table
+// and writes the members it finds to the new table. Because every row of a single
+// (tag_id, bucket_id) partition shares one token, all members of a partition arrive
+// contiguously during the scan; the batch is flushed on each partition-key boundary so writes
+// stay single-partition. Members read are added to *totalCount as the scan progresses so the
+// heartbeat stays live inside a large range. Returns the number of write errors for the range.
+func migrateTokenRange(session *gocql.Session, srcKeyspace, oldTable, writeStmt, tenantID string, r tokenRange, dryRun bool, totalCount *int64) int {
+	// The first range must include the minimum token so a partition hashing to
+	// math.MinInt64 is not skipped; all later ranges are exclusive of their lower bound.
+	lowerOp := ">"
+	if r.first {
+		lowerOp = ">="
+	}
+	readStmt := fmt.Sprintf(
+		`SELECT tag_id, bucket_id, member, created FROM "%s"."%s" WHERE token(tag_id, bucket_id) %s ? AND token(tag_id, bucket_id) <= ?`,
+		srcKeyspace, oldTable, lowerOp)
 
-	count, writeErrors := 0, 0
+	// The source is read-only during migration, so LOCAL_ONE keeps the scan fast and light
+	// on the cluster instead of paying LOCAL_QUORUM on every page.
+	iter := session.Query(readStmt, r.start, r.end).Consistency(gocql.LocalOne).Iter()
+
+	var cur tagPartition
+	haveCur := false
 	batch := session.NewBatch(gocql.UnloggedBatch)
+	count, writeErrors, sinceReport := 0, 0, 0
+
+	// reportCount publishes locally-buffered member counts to the shared total so the
+	// heartbeat reflects progress without a contended atomic add on every row.
+	reportCount := func() {
+		if sinceReport > 0 {
+			atomic.AddInt64(totalCount, int64(sinceReport))
+			sinceReport = 0
+		}
+	}
+
 	for {
 		row := make(map[string]any)
 		if !iter.MapScan(row) {
 			break
 		}
+		tagID, _ := row["tag_id"].(string)
 		member, _ := row["member"].(string)
-		if member == "" {
+		if tagID == "" || member == "" {
 			continue
 		}
-		// Convert created (Unix milliseconds) to time.Time
-		var updated time.Time
-		switch v := row["created"].(type) {
-		case int64:
-			updated = time.UnixMilli(v)
-		case int:
-			updated = time.UnixMilli(int64(v))
-		default:
-			updated = time.Now()
-		}
+		bucketID, _ := row["bucket_id"].(int)
+		p := tagPartition{tagID: tagID, bucketID: bucketID}
+		updated := tagUpdatedFromCreated(row["created"])
 		count++
+		sinceReport++
 
-		// In dry-run we only count rows: a single partition can hold millions of
-		// members, so logging one line per member would be prohibitively noisy.
-		// A per-partition summary is logged once the partition is fully read.
 		if !dryRun {
+			// Partition boundary: flush the previous partition's rows before starting a
+			// new partition so each batch stays within a single partition.
+			if haveCur && p != cur && batch.Size() > 0 {
+				writeErrors += flushTagBatch(session, batch, cur)
+				batch = session.NewBatch(gocql.UnloggedBatch)
+			}
 			batch.Query(writeStmt, tenantID, p.tagID, p.bucketID, member, updated)
 			if batch.Size() >= tagMemberBatchSize {
 				writeErrors += flushTagBatch(session, batch, p)
 				batch = session.NewBatch(gocql.UnloggedBatch)
 			}
 		}
+		cur = p
+		haveCur = true
 
-		// Emit an intra-partition heartbeat for very large partitions so a single
-		// worker streaming millions of members is not mistaken for a hang.
+		// Emit an intra-range heartbeat so a long-running range is not mistaken for a hang.
 		if count%tagMemberLogInterval == 0 {
-			log.Printf("    tag_id=%q bucket_id=%d: %d members processed so far...", p.tagID, p.bucketID, count)
+			reportCount()
+			log.Printf("    token range (%d, %d]: %d members processed so far...", r.start, r.end, count)
 		}
 	}
-	// Flush any members left in a partially-filled batch.
-	if !dryRun {
-		writeErrors += flushTagBatch(session, batch, p)
+	// Flush any members left in the final partition's partially-filled batch.
+	if !dryRun && batch.Size() > 0 {
+		writeErrors += flushTagBatch(session, batch, cur)
 	}
+	reportCount()
 	if err := iter.Close(); err != nil {
-		log.Printf("    warn: read partition tag_id=%q bucket_id=%d: %v", p.tagID, p.bucketID, err)
+		log.Printf("    warn: scan token range (%d, %d]: %v", r.start, r.end, err)
 	}
-	if dryRun {
-		log.Printf("    dry-run: would write %d member(s) for tag_id=%q bucket_id=%d", count, p.tagID, p.bucketID)
-	}
-	return count, writeErrors
+	return writeErrors
 }
 
 // flushTagBatch executes a single-partition unlogged batch of member inserts. On success it
