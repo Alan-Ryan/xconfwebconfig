@@ -98,7 +98,6 @@ var registerOnce sync.Once
 func RegisterTables() {
 	registerOnce.Do(func() {
 		db.RegisterTableConfigSimple(db.TABLE_APP_SETTINGS, shared.NewAppSettingInf)
-		db.RegisterTableConfigSimple(db.TABLE_APPLICATION_TYPES, shared.NewApplicationTypeInf)
 		db.RegisterTableConfigSimple(db.TABLE_ENVIRONMENTS, shared.NewEnvironmentInf)
 		db.RegisterTableConfigSimple(db.TABLE_MODELS, shared.NewModelInf)
 		db.RegisterTableConfigSimple(db.TABLE_FEATURE_CONTROL_RULES, rfc.NewFeatureRuleInf)

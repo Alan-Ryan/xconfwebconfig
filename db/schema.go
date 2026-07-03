@@ -24,7 +24,6 @@ import (
 const (
 	// Common
 	TABLE_TENANTS            = "tenants"
-	TABLE_APPLICATION_TYPES  = "application_types"
 	TABLE_ENVIRONMENTS       = "environments"
 	TABLE_MODELS             = "models"
 	TABLE_GENERIC_NS_LIST    = "generic_named_lists"
@@ -107,7 +106,6 @@ var AllTables = []string{
 	TABLE_GENERIC_NS_LIST,
 	TABLE_CONFIG_CHANGE_LOGS,
 	TABLE_CHANGE_EVENTS,
-	TABLE_APPLICATION_TYPES,
 	TABLE_TENANTS,
 	TABLE_LOGS,
 	TABLE_LOCKS,

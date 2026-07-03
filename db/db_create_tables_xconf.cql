@@ -18,8 +18,6 @@
 
 -- xconf KEYSPACE
 USE xconf;
-
-CREATE TABLE IF NOT EXISTS application_types (tenant_id text, shard_id int, key text, value blob, updated timestamp, PRIMARY KEY ((tenant_id, shard_id), key));
  
 CREATE TABLE IF NOT EXISTS models (tenant_id text, shard_id int, key text, value blob, updated timestamp, PRIMARY KEY ((tenant_id, shard_id), key));
  
