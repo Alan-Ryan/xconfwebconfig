@@ -164,10 +164,6 @@ func (c *CassandraClient) SetFwPenetrationData(pData *FwPenetrationData) error {
 		columns = append(columns, RecoveryCertExpiryValue)
 		values = append(values, pData.RecoveryCertExpiry)
 	}
-	if !isEmptyString(pData.TimeZone) {
-		columns = append(columns, TimeZoneColumnValue)
-		values = append(values, pData.TimeZone)
-	}
 	return c.updatePenetrationData(columns, values)
 }
 
