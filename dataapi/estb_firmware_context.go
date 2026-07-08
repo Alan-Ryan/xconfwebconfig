@@ -312,7 +312,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 					}
 					err := db.GetDatabaseClient().UpdateFwPenetrationMetrics(kvmap)
 					if err != nil {
-						log.Error(fmt.Sprintf("Can't save Timezone in penetration metrics, estbMac=%s, error=%+v", contextMap[common.ESTB_MAC], err))
+						log.Errorf("Can't save Timezone in penetration metrics, estbMac=%s, error=%+v", contextMap[common.ESTB_MAC], err)
 					}
 					log.WithFields(fields).Debug("AddEstbFirmwareContext TZ PenetrationUpdate Exit")
 				}
