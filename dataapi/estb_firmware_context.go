@@ -306,7 +306,6 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 						log.WithFields(fields).Error("AddEstbFirmwareContext: Failed to unmarshal only AccountProducts")
 					}
 				}
-				
 				if contextMap[common.TIME_ZONE] != "" {
 					kvmap := map[string]string{
 						db.EstbMacColumnName:   contextMap[common.ESTB_MAC],
