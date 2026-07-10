@@ -212,8 +212,13 @@ func AddContextForPods(ws *xhttp.XconfServer, contextMap map[string]string, satT
 
 	tfields := common.FilterLogFields(fields)
 	accountServiceConnector := ws.AccountServiceConnector
-	if strings.EqualFold(contextMap[partnerRouteKey], "true") && ws.PartnerAccountServiceConnector != nil {
-		accountServiceConnector = ws.PartnerAccountServiceConnector
+	if strings.EqualFold(contextMap[partnerRouteKey], "true") {
+		if ws.PartnerAccountServiceConnector != nil {
+			accountServiceConnector = ws.PartnerAccountServiceConnector
+		} else {
+			log.WithFields(tfields).Error("partner route requested but PartnerAccountServiceConnector is nil; aborting account lookup to avoid default connector fallback")
+			return podData, td
+		}
 	}
 	if Xc.EnableXacGroupService {
 		podData, td = getAccountInfoFromGrpService(ws, contextMap, fields)
@@ -339,9 +344,15 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 		fields = log.Fields{}
 	}
 	var err error
+	tfields := common.FilterLogFields(fields)
 	accountServiceConnector := ws.AccountServiceConnector
-	if strings.EqualFold(contextMap[partnerRouteKey], "true") && ws.PartnerAccountServiceConnector != nil {
-		accountServiceConnector = ws.PartnerAccountServiceConnector
+	if strings.EqualFold(contextMap[partnerRouteKey], "true") {
+		if ws.PartnerAccountServiceConnector != nil {
+			accountServiceConnector = ws.PartnerAccountServiceConnector
+		} else {
+			log.WithFields(tfields).Error("partner route requested but PartnerAccountServiceConnector is nil; aborting account lookup to avoid default connector fallback")
+			return td
+		}
 	}
 	if Xc.EnableXacGroupService {
 		if util.IsValidMacAddress(contextMap[common.ESTB_MAC_ADDRESS]) || util.IsValidMacAddress(contextMap[common.ECM_MAC_ADDRESS]) {

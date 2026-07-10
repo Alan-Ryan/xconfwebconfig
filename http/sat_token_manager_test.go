@@ -131,7 +131,7 @@ func TestGetLocalPartnerSatToken_RefreshesOnExpiry(t *testing.T) {
 	assert.NoError(t, err1)
 
 	stm.mu.Lock()
-	stm.partnerSatToken.Expiry = "2000-01-01 00:00:00"
+	stm.partnerSatTokens["FOXTEL"].Expiry = "2000-01-01 00:00:00"
 	stm.mu.Unlock()
 
 	t2, err2 := GetLocalPartnerSatToken(fields, "foxtel")
@@ -149,17 +149,16 @@ func TestGetLocalPartnerSatToken_PropagatesPartnerAcrossFetches(t *testing.T) {
 	InitSatTokenManager(server)
 
 	fields := log.Fields{"test": "partner_propagation"}
-	_, err1 := GetLocalPartnerSatToken(fields, "foxtel")
+	t1, err1 := GetLocalPartnerSatToken(fields, "foxtel")
 	assert.NoError(t, err1)
-
-	// Force a cache miss so the next partner-specific request triggers a new fetch.
-	stm.mu.Lock()
-	stm.partnerSatToken.Expiry = "2000-01-01 00:00:00"
-	stm.mu.Unlock()
 
 	t2, err2 := GetLocalPartnerSatToken(fields, "sky")
 	assert.NoError(t, err2)
 	assert.Equal(t, "token_sky", t2.Token)
+	t3, err3 := GetLocalPartnerSatToken(fields, "foxtel")
+	assert.NoError(t, err3)
+	assert.Equal(t, "token_foxtel", t1.Token)
+	assert.Equal(t, "token_foxtel", t3.Token)
 	assert.Equal(t, []string{"foxtel", "sky"}, mock.partners)
 	assert.Equal(t, 2, mock.callCount)
 }

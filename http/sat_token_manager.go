@@ -19,6 +19,7 @@ package http
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,9 +32,9 @@ import (
 // SatTokenMgr - token manager
 type SatTokenMgr struct {
 	*SatToken
-	partnerSatToken *SatToken
-	mu              sync.RWMutex
-	testOnly        bool
+	partnerSatTokens map[string]*SatToken
+	mu               sync.RWMutex
+	testOnly         bool
 }
 
 // SatToken - response object of sat token from SatService
@@ -63,16 +64,20 @@ func NewSatTokenMgr(args ...bool) *SatTokenMgr {
 	if len(args) > 0 {
 		arg := args[0]
 		return &SatTokenMgr{
-			SatToken:        &SatToken{},
-			partnerSatToken: &SatToken{},
-			testOnly:        arg,
+			SatToken:         &SatToken{},
+			partnerSatTokens: map[string]*SatToken{},
+			testOnly:         arg,
 		}
 	}
 	return &SatTokenMgr{
-		SatToken:        &SatToken{},
-		partnerSatToken: &SatToken{},
-		testOnly:        false,
+		SatToken:         &SatToken{},
+		partnerSatTokens: map[string]*SatToken{},
+		testOnly:         false,
 	}
+}
+
+func normalizePartnerKey(partner string) string {
+	return strings.ToUpper(strings.TrimSpace(partner))
 }
 
 // GetSatTokenManager - return Sattoken manager object
@@ -121,16 +126,23 @@ func GetLocalSatToken(fields log.Fields) (*SatToken, error) {
 }
 
 func GetLocalPartnerSatToken(fields log.Fields, partner string) (*SatToken, error) {
+	partnerKey := normalizePartnerKey(partner)
 	if stm.TestOnly() {
 		stm.mu.RLock()
 		defer stm.mu.RUnlock()
-		return stm.partnerSatToken, nil
+		if token, ok := stm.partnerSatTokens[partnerKey]; ok {
+			return token, nil
+		}
+		return &SatToken{}, nil
 	}
 	fields = common.FilterLogFields(fields)
 
 	stm.mu.RLock()
-	partnerToken := stm.partnerSatToken
+	partnerToken, ok := stm.partnerSatTokens[partnerKey]
 	stm.mu.RUnlock()
+	if !ok || partnerToken == nil {
+		partnerToken = &SatToken{}
+	}
 
 	if partnerToken.Token == "" || partnerToken.IsTokenExpired(fields) {
 		log.WithFields(fields).Debug("no local partner token found or expired, getting token from SatService")
@@ -140,7 +152,10 @@ func GetLocalPartnerSatToken(fields log.Fields, partner string) (*SatToken, erro
 		}
 		stm.mu.RLock()
 		defer stm.mu.RUnlock()
-		return stm.partnerSatToken, nil
+		if token, ok := stm.partnerSatTokens[partnerKey]; ok {
+			return token, nil
+		}
+		return &SatToken{}, nil
 	}
 	log.WithFields(fields).Debug("used local partner SAT token cache")
 	return partnerToken, nil
@@ -167,6 +182,7 @@ func SetLocalSatToken(fields log.Fields) error {
 }
 
 func SetLocalPartnerSatToken(fields log.Fields, partner string) error {
+	partnerKey := normalizePartnerKey(partner)
 	cb2Token, err := GetPartnerSatTokenFromSatService(fields, partner)
 	if err != nil {
 		return err
@@ -177,7 +193,7 @@ func SetLocalPartnerSatToken(fields log.Fields, partner string) error {
 	}
 	keyname := fmt.Sprintf("sat_token_%s", name)
 	stm.mu.Lock()
-	stm.partnerSatToken = &SatToken{
+	stm.partnerSatTokens[partnerKey] = &SatToken{
 		Token:    cb2Token.AccessToken,
 		Source:   name,
 		KeyName:  keyname,
