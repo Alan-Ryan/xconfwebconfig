@@ -58,6 +58,8 @@ func GetLogUploaderTelemetryProfilesHandler(w http.ResponseWriter, r *http.Reque
 	coastTags, _ := AddLogUploaderContext(Ws, r, contextMap, false, fields)
 	xconfTags := AddGroupServiceFTContext(Ws, common.ESTB_MAC_ADDRESS, contextMap, true, fields)
 	CompareTaggingSources(contextMap, coastTags, xconfTags, fields)
+	// call this method after any backend lookups that might populate partner info
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	evaluationResult, err := GetTelemetryTwoProfileResponeDicts(contextMap, fields)
 	if err != nil {
 		xhttp.Error(w, http.StatusInternalServerError, err)
@@ -91,7 +93,6 @@ func GetContextMapAndSettingTypes(r *http.Request) (map[string]string, []string)
 	}
 	contextMap := make(map[string]string)
 	contextMap[common.APPLICATION_TYPE] = applicationType
-	contextMap[common.TENANT_ID] = xhttp.GetTenantId(r, "")
 	var settingTypes []string
 	if len(queryParams) > 0 {
 		for k, v := range queryParams {
@@ -125,6 +126,8 @@ func GetLogUploaderSettings(w http.ResponseWriter, r *http.Request, isTelemetry2
 	coastTags, _ := AddLogUploaderContext(Ws, r, contextMap, true, fields)
 	xconfTags := AddGroupServiceFTContext(Ws, common.ESTB_MAC_ADDRESS, contextMap, false, fields)
 	CompareTaggingSources(contextMap, coastTags, xconfTags, fields)
+	// call this method after any backend lookups that might populate partner info
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	checkNow, err := strconv.ParseBool(contextMap[common.CHECK_NOW])
 	if err == nil && checkNow {
 		telemetryProfileService := telemetry.NewTelemetryProfileService()

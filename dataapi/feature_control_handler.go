@@ -70,7 +70,6 @@ func GetFeatureControlSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		applicationType = shared.STB
 	}
 	contextMap[common.APPLICATION_TYPE] = applicationType
-	contextMap[common.TENANT_ID] = xhttp.GetTenantId(r, contextMap[common.PARTNER_ID])
 
 	if len(queryParams) > 0 {
 		for k, v := range queryParams {
@@ -86,6 +85,7 @@ func GetFeatureControlSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	clientCertExpiry := GetClientCertExpiryHeaderValue(r)
 	AddCertExpiryToContextMap(contextMap, clientCertExpiry)
 	AddClientCertDurationToContext(contextMap, clientCertExpiry)
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 
 	ipInSameNetwork := true
 	canPrecookRfcResponse := false
@@ -99,8 +99,11 @@ func GetFeatureControlSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		log.WithFields(tfields).Debug("Currently in pre-cook lockdown mode, setting pre-cook flags to false.")
 		ruleEvalReasons = append(ruleEvalReasons, "precook-off")
 	} else {
-		exclusionMacsSet, _ := shared.GetGenericNamedListSetByType(contextMap[common.TENANT_ID], shared.MAC_LIST)
-		if exclusionMacsSet.Contains(contextMap[common.ESTB_MAC_ADDRESS]) {
+		exclusionMacsSet, err := shared.GetGenericNamedListSetByType(contextMap[common.TENANT_ID], shared.MAC_LIST)
+		if err != nil {
+			log.WithFields(tfields).Warnf("failed to load generic named list set for type %s, tenantId=%s: %+v", shared.MAC_LIST, contextMap[common.TENANT_ID], err)
+		}
+		if exclusionMacsSet != nil && exclusionMacsSet.Contains(contextMap[common.ESTB_MAC_ADDRESS]) {
 			log.WithFields(tfields).Debugf("Device mac %s is in precook exclusion list, will not deliver precook data.", contextMap[common.ESTB_MAC_ADDRESS])
 			xhttp.IncreasePrecookExcludeMacListCounter(contextMap[common.PARTNER_ID], contextMap[common.MODEL])
 			ruleEvalReasons = append(ruleEvalReasons, "mac-excluded")

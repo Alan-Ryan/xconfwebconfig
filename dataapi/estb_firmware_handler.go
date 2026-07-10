@@ -65,7 +65,8 @@ func GetEstbFirmwareSwuBseHandler(w http.ResponseWriter, r *http.Request) {
 		xhttp.WriteXconfResponseAsText(w, 400, []byte(fmt.Sprintf("Required IpAddress value: '%s' is not a valid IpAddress", ipAddress)))
 		return
 	}
-	tenantId := xhttp.GetTenantId(r, contextMap[common.PARTNER_ID])
+	// call this method after any backend lookups that might populate partner info
+	tenantId := xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	estbFirmwareRuleBase := dataef.NewEstbFirmwareRuleBaseDefault()
 	bseConfiguration, _ := estbFirmwareRuleBase.GetBseConfiguration(tenantId, ip)
 	if bseConfiguration == nil {
@@ -152,7 +153,6 @@ func GetFirmwareResponse(w http.ResponseWriter, r *http.Request, xw *xhttp.XResp
 		}
 	}
 	contextMap[common.APPLICATION_TYPE] = mux.Vars(r)[common.APPLICATION_TYPE]
-	contextMap[common.TENANT_ID] = xhttp.GetTenantId(r, contextMap[common.PARTNER_ID])
 	contextMap[common.XCONF_HTTP_HEADER] = clientProtocolHeader
 	AddClientProtocolToContextMap(contextMap, clientProtocolHeader)
 	clientCertExpiry := GetClientCertExpiryHeaderValue(r)
@@ -173,6 +173,8 @@ func GetFirmwareResponse(w http.ResponseWriter, r *http.Request, xw *xhttp.XResp
 	log.Debugf("GetEstbFirmwareSwuHandler call AddEstbFirmwareContext start ... queryParams %v", queryParams)
 	AddEstbFirmwareContext(Ws, r, contextMap, true, true, fields)
 	log.Debugf("GetEstbFirmwareSwuHandler call AddEstbFirmwareContext  ... end contextMap %v", contextMap)
+	// call this method after any backend lookups that might populate partner info
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	estbFirmwareRuleBase := dataef.NewEstbFirmwareRuleBaseDefault()
 	convertedContext := sharedef.GetContextConverted(contextMap)
 	evaluationResult, _ := estbFirmwareRuleBase.Eval(contextMap, convertedContext, contextMap[common.APPLICATION_TYPE], fields)
@@ -263,7 +265,6 @@ func GetEstbFirmwareVersionInfoPath(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	contextMap[common.APPLICATION_TYPE] = mux.Vars(r)[common.APPLICATION_TYPE]
-	contextMap[common.TENANT_ID] = xhttp.GetTenantId(r, contextMap[common.PARTNER_ID])
 	clientProtocolHeader := GetClientProtocolHeaderValue(r)
 	contextMap[common.XCONF_HTTP_HEADER] = clientProtocolHeader
 	AddClientProtocolToContextMap(contextMap, clientProtocolHeader)
@@ -274,6 +275,8 @@ func GetEstbFirmwareVersionInfoPath(w http.ResponseWriter, r *http.Request) {
 		xhttp.WriteXconfResponseAsText(w, 403, []byte("FORBIDDEN"))
 	} else {
 		AddEstbFirmwareContext(Ws, r, contextMap, true, true, fields)
+		// call this method after any backend lookups that might populate partner info
+		contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 		estbFirmwareRuleBase := dataef.NewEstbFirmwareRuleBaseDefault()
 		runningVersionInfo := estbFirmwareRuleBase.GetAppliedActivationVersionType(contextMap, contextMap[common.APPLICATION_TYPE])
 		fields["context"] = contextMap
