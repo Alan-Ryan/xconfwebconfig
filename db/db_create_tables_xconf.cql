@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS telemetry_approved_changes (tenant_id text, shard_id 
 CREATE TABLE IF NOT EXISTS telemetry_two_changes (tenant_id text, shard_id int, key text, value blob, updated timestamp, PRIMARY KEY ((tenant_id, shard_id), key));
  
 CREATE TABLE IF NOT EXISTS telemetry_approved_two_changes (tenant_id text, shard_id int, key text, value blob, updated timestamp, PRIMARY KEY ((tenant_id, shard_id), key));
- 
-CREATE TABLE IF NOT EXISTS recooking_status (tenant_id text, shard_id int, module text, partition_id text, state int, updated_time timestamp, PRIMARY KEY ((tenant_id, shard_id), module, partition_id));
+
+CREATE TABLE IF NOT EXISTS "recooking_status" (module text, partition_id text, state int, updated_time timestamp, PRIMARY KEY (module, partition_id));
  
 CREATE TABLE IF NOT EXISTS locks (tenant_id text, shard_id int, name text, locked_by text, locked_at timestamp, expires_at timestamp, PRIMARY KEY ((tenant_id, shard_id), name));
  
