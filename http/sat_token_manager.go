@@ -19,6 +19,8 @@ package http
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/rdkcentral/xconfwebconfig/common"
@@ -30,7 +32,9 @@ import (
 // SatTokenMgr - token manager
 type SatTokenMgr struct {
 	*SatToken
-	testOnly bool
+	partnerSatTokens map[string]*SatToken
+	mu               sync.RWMutex
+	testOnly         bool
 }
 
 // SatToken - response object of sat token from SatService
@@ -60,14 +64,20 @@ func NewSatTokenMgr(args ...bool) *SatTokenMgr {
 	if len(args) > 0 {
 		arg := args[0]
 		return &SatTokenMgr{
-			SatToken: &SatToken{},
-			testOnly: arg,
+			SatToken:         &SatToken{},
+			partnerSatTokens: map[string]*SatToken{},
+			testOnly:         arg,
 		}
 	}
 	return &SatTokenMgr{
-		SatToken: &SatToken{},
-		testOnly: false,
+		SatToken:         &SatToken{},
+		partnerSatTokens: map[string]*SatToken{},
+		testOnly:         false,
 	}
+}
+
+func normalizePartnerKey(partner string) string {
+	return strings.ToUpper(strings.TrimSpace(partner))
 }
 
 // GetSatTokenManager - return Sattoken manager object
@@ -115,6 +125,42 @@ func GetLocalSatToken(fields log.Fields) (*SatToken, error) {
 	return stm.SatToken, nil
 }
 
+func GetLocalPartnerSatToken(fields log.Fields, partner string) (*SatToken, error) {
+	partnerKey := normalizePartnerKey(partner)
+	if stm.TestOnly() {
+		stm.mu.RLock()
+		defer stm.mu.RUnlock()
+		if token, ok := stm.partnerSatTokens[partnerKey]; ok {
+			return token, nil
+		}
+		return &SatToken{}, nil
+	}
+	fields = common.FilterLogFields(fields)
+
+	stm.mu.RLock()
+	partnerToken, ok := stm.partnerSatTokens[partnerKey]
+	stm.mu.RUnlock()
+	if !ok || partnerToken == nil {
+		partnerToken = &SatToken{}
+	}
+
+	if partnerToken.Token == "" || partnerToken.IsTokenExpired(fields) {
+		log.WithFields(fields).Debug("no local partner token found or expired, getting token from SatService")
+		err := SetLocalPartnerSatToken(fields, partner)
+		if err != nil {
+			return nil, err
+		}
+		stm.mu.RLock()
+		defer stm.mu.RUnlock()
+		if token, ok := stm.partnerSatTokens[partnerKey]; ok {
+			return token, nil
+		}
+		return &SatToken{}, nil
+	}
+	log.WithFields(fields).Debug("used local partner SAT token cache")
+	return partnerToken, nil
+}
+
 // SetLocalSatToken - setting up local sat token from SatService
 func SetLocalSatToken(fields log.Fields) error {
 	// going to SatService to get sattoken
@@ -132,6 +178,29 @@ func SetLocalSatToken(fields log.Fields) error {
 		Expiry:   GetTokenExpiryTime(),
 		TokenTTL: cb2Token.ExpiresIn,
 	}
+	return nil
+}
+
+func SetLocalPartnerSatToken(fields log.Fields, partner string) error {
+	partnerKey := normalizePartnerKey(partner)
+	cb2Token, err := GetPartnerSatTokenFromSatService(fields, partner)
+	if err != nil {
+		return err
+	}
+	name := Ws.SatServiceConnector.SatServiceName()
+	if Ws.PartnerSatServiceConnector != nil {
+		name = Ws.PartnerSatServiceConnector.SatServiceName()
+	}
+	keyname := fmt.Sprintf("sat_token_%s", name)
+	stm.mu.Lock()
+	stm.partnerSatTokens[partnerKey] = &SatToken{
+		Token:    cb2Token.AccessToken,
+		Source:   name,
+		KeyName:  keyname,
+		Expiry:   GetTokenExpiryTime(),
+		TokenTTL: cb2Token.ExpiresIn,
+	}
+	stm.mu.Unlock()
 	return nil
 }
 
@@ -154,6 +223,18 @@ func GetSatTokenFromSatService(fields log.Fields) (*SatToken, error) {
 		Expiry:   GetTokenExpiryTime(),
 		TokenTTL: satToken.ExpiresIn,
 	}, nil
+}
+
+func GetPartnerSatTokenFromSatService(fields log.Fields, partner string) (*SatServiceResponse, error) {
+	log.WithFields(fields).Debug("getting sat token from partner SatService")
+	if Ws.PartnerSatServiceConnector == nil {
+		log.WithFields(fields).Warn("Partner SAT connector is nil, falling back to default SAT connector")
+		return Ws.GetSatTokenFromSatService(fields)
+	}
+	if partner != "" {
+		return Ws.PartnerSatServiceConnector.GetSatTokenFromSatService(fields, partner)
+	}
+	return Ws.PartnerSatServiceConnector.GetSatTokenFromSatService(fields)
 }
 
 // IsTokenExpired - making sure token is still valid
