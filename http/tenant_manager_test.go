@@ -37,6 +37,20 @@ func TestResolveTenantIdFromPartner_BlankPartnerUsesDefault(t *testing.T) {
 	assert.Equal(t, db.GetDefaultTenantId(), resolved)
 }
 
+func TestResolveTenantIdFromPartner_UnknownOrNoaccountUsesDefault(t *testing.T) {
+	originalMapping := PartnerTenantMapping
+	PartnerTenantMapping = map[string]string{}
+	t.Cleanup(func() {
+		PartnerTenantMapping = originalMapping
+	})
+
+	testCases := []string{"unknown", "Unknown", "noaccount", "NoAccount"}
+	for _, partnerId := range testCases {
+		resolved := ResolveTenantIdFromPartner(partnerId)
+		assert.Equal(t, db.GetDefaultTenantId(), resolved)
+	}
+}
+
 func TestResolveTenantIdFromPartner_MappedPartners(t *testing.T) {
 	originalMapping := PartnerTenantMapping
 	PartnerTenantMapping = map[string]string{

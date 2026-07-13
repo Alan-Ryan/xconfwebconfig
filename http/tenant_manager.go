@@ -1,7 +1,6 @@
 package http
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/rdkcentral/xconfwebconfig/db"
@@ -14,16 +13,11 @@ import (
 // Key is normalized partnerId (uppercase), value is tenantId.
 var PartnerTenantMapping = map[string]string{}
 
-func GetTenantId(r *http.Request, partnerId string) string {
-	// TODO - we can enhance this function in the future to get tenantId from different sources (header, query param, etc.)
-	// if needed, but for now we will just return default tenant id since we only have one tenant
-	return db.GetDefaultTenantId()
-}
-
 func ResolveTenantIdFromPartner(partnerId string) string {
 	defaultTenantId := db.GetDefaultTenantId()
 	trimmedPartnerId := strings.TrimSpace(partnerId)
-	if trimmedPartnerId == "" {
+	// if device sends partner=unknown or empty partner, use default tenant id
+	if util.IsUnknownValue(trimmedPartnerId) || trimmedPartnerId == "" {
 		return defaultTenantId
 	}
 

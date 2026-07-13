@@ -24,6 +24,7 @@ import (
 
 	"github.com/rdkcentral/xconfwebconfig/common"
 	dataef "github.com/rdkcentral/xconfwebconfig/dataapi/estbfirmware"
+	"github.com/rdkcentral/xconfwebconfig/db"
 	xhttp "github.com/rdkcentral/xconfwebconfig/http"
 	"github.com/rdkcentral/xconfwebconfig/shared"
 	sharedef "github.com/rdkcentral/xconfwebconfig/shared/estbfirmware"
@@ -292,7 +293,7 @@ func GetEstbLastlogPath(w http.ResponseWriter, r *http.Request) {
 		xhttp.WriteXconfResponseAsText(w, 400, []byte(errStr))
 	} else {
 		mac := util.NormalizeMacAddress(mac)
-		tenantId := xhttp.GetTenantId(r, "")
+		tenantId := db.GetDefaultTenantId()
 		lastConfigLog := sharedef.GetLastConfigLog(tenantId, mac)
 		if lastConfigLog != nil {
 			LogPreDisplayCleanup(lastConfigLog)
@@ -311,7 +312,7 @@ func GetEstbChangelogsPath(w http.ResponseWriter, r *http.Request) {
 		xhttp.WriteXconfResponseAsText(w, 400, []byte(errStr))
 	} else {
 		mac := util.NormalizeMacAddress(mac)
-		tenantId := xhttp.GetTenantId(r, "")
+		tenantId := db.GetDefaultTenantId()
 		configChangeLogs := sharedef.GetConfigChangeLogsOnly(tenantId, mac)
 		if len(configChangeLogs) > 0 {
 			for _, log := range configChangeLogs {

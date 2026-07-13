@@ -1137,7 +1137,8 @@ func (c *CassandraClient) SetTenant(tenant *Tenant) error {
 	if err := c.Query(stmt, tenant.ID, tenant.Name, tenant.Updated).Exec(); err != nil {
 		return err
 	}
-	GetCacheManager().ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
+	// Avoid GetCacheManager() recursion: SetTenant can be called while cache manager is initializing.
+	cacheManager.ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
 	return nil
 }
 
@@ -1149,7 +1150,8 @@ func (c *CassandraClient) DeleteTenant(tenantId string) error {
 	if err := c.Query(stmt, tenantId).Exec(); err != nil {
 		return err
 	}
-	GetCacheManager().ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
+	// Avoid GetCacheManager() recursion while cache manager init is in progress.
+	cacheManager.ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
 	return nil
 }
 

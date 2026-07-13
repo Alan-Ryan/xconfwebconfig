@@ -1,7 +1,7 @@
 # Proposal: Device Partner-to-Tenant Resolution
 
 ## Summary
-Introduce partnerId-based tenant resolution for device-facing requests in xconfwebconfig and xconfds.
+Introduce partnerId-based tenant resolution for device-facing requests in xconfwebconfig.
 
 Today, device-facing paths generally resolve tenantId to the configured default tenant when tenantId is not provided. Devices do not use SAT, and many devices (especially legacy) do not send tenantId. Devices commonly send partnerId. This change defines deterministic tenant resolution using partnerId with configurable partner-to-tenant mapping.
 
@@ -26,7 +26,7 @@ High-level resolution:
 6. Case-insensitive matching is preferred.
 
 ## Impact
-- Device-facing request routing/evaluation in xconfwebconfig and xconfds becomes multi-tenant aware by partnerId.
+- Device-facing request routing/evaluation in xconfwebconfig becomes multi-tenant aware by partnerId.
 - Legacy device behavior is preserved via default-tenant fallback.
 - No change to xconfadmin behavior.
 - No SAT/Auth behavior changes.
@@ -38,8 +38,8 @@ High-level resolution:
 - No hardcoded partner lists in code; mapping remains externally configurable.
 
 ## Risks and Mitigations
-- Risk: inconsistent behavior between xconfwebconfig and xconfds.
-  - Mitigation: centralize resolver helper and reuse in both services where practical.
+- Risk: inconsistent behavior across xconfwebconfig device-facing paths.
+  - Mitigation: centralize resolver helper and reuse in device paths where practical.
 - Risk: ambiguous partner casing.
   - Mitigation: prefer case-insensitive matching and cover with tests.
 - Risk: missing mapping entries.
