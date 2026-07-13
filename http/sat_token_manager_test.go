@@ -18,6 +18,7 @@
 package http
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,8 +32,13 @@ type MockSatServiceConnector struct {
 	name                    string
 	host                    string
 	consumerHost            string
+	clientID                string
+	clientSecret            string
 	tokenUrlTemplate        string
 	tokenPartnerUrlTemplate string
+	callCount               int
+	partners                []string
+	tokenByPartner          map[string]string
 }
 
 func (m *MockSatServiceConnector) SatServiceName() string {
@@ -55,6 +61,11 @@ func (m *MockSatServiceConnector) SetSatServiceHost(host string) {
 	m.host = host
 }
 
+func (m *MockSatServiceConnector) SetSatClientCredentials(clientID, clientSecret string) {
+	m.clientID = clientID
+	m.clientSecret = clientSecret
+}
+
 func (m *MockSatServiceConnector) SetTokenUrlTemplate(template string) {
 	m.tokenUrlTemplate = template
 }
@@ -64,15 +75,112 @@ func (m *MockSatServiceConnector) SetTokenPartnerUrlTemplate(template string) {
 }
 
 func (m *MockSatServiceConnector) GetSatTokenFromSatService(fields log.Fields, vargs ...string) (*SatServiceResponse, error) {
+	m.callCount++
+	partner := ""
+	if len(vargs) > 0 {
+		partner = vargs[0]
+		m.partners = append(m.partners, partner)
+	}
+
+	accessToken := fmt.Sprintf("mock_test_token_%d", m.callCount)
+	if token, ok := m.tokenByPartner[partner]; ok {
+		accessToken = token
+	}
+
 	// Return mock data without making HTTP requests - URL templates don't matter
 	return &SatServiceResponse{
-		AccessToken:  "mock_test_token_12345",
+		AccessToken:  accessToken,
 		ExpiresIn:    86400,
 		Scope:        "scope1 scope2",
 		TokenType:    "Bearer",
 		ResponseCode: 200,
 		Description:  "Mock token for testing",
 	}, nil
+}
+
+func TestGetLocalPartnerSatToken_FetchesAndCaches(t *testing.T) {
+	sc, _ := common.NewServerConfig("../config/sample_xconfwebconfig.conf")
+	server := NewXconfServer(sc, true, nil)
+	server.SetupMocks()
+	mock := &MockSatServiceConnector{tokenByPartner: map[string]string{"foxtel": "partner_foxtel_token"}}
+	server.PartnerSatServiceConnector = mock
+	InitSatTokenManager(server)
+
+	fields := log.Fields{"test": "partner_cache"}
+	t1, err1 := GetLocalPartnerSatToken(fields, "foxtel")
+	t2, err2 := GetLocalPartnerSatToken(fields, "foxtel")
+
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
+	assert.Equal(t, "partner_foxtel_token", t1.Token)
+	assert.Equal(t, "partner_foxtel_token", t2.Token)
+	assert.Equal(t, 1, mock.callCount)
+	assert.Equal(t, []string{"foxtel"}, mock.partners)
+}
+
+func TestGetLocalPartnerSatToken_RefreshesOnExpiry(t *testing.T) {
+	sc, _ := common.NewServerConfig("../config/sample_xconfwebconfig.conf")
+	server := NewXconfServer(sc, true, nil)
+	server.SetupMocks()
+	mock := &MockSatServiceConnector{}
+	server.PartnerSatServiceConnector = mock
+	InitSatTokenManager(server)
+
+	fields := log.Fields{"test": "partner_refresh"}
+	t1, err1 := GetLocalPartnerSatToken(fields, "foxtel")
+	assert.NoError(t, err1)
+
+	stm.mu.Lock()
+	stm.partnerSatTokens["FOXTEL"].Expiry = "2000-01-01 00:00:00"
+	stm.mu.Unlock()
+
+	t2, err2 := GetLocalPartnerSatToken(fields, "foxtel")
+	assert.NoError(t, err2)
+	assert.NotEqual(t, t1.Token, t2.Token)
+	assert.Equal(t, 2, mock.callCount)
+}
+
+func TestGetLocalPartnerSatToken_PropagatesPartnerAcrossFetches(t *testing.T) {
+	sc, _ := common.NewServerConfig("../config/sample_xconfwebconfig.conf")
+	server := NewXconfServer(sc, true, nil)
+	server.SetupMocks()
+	mock := &MockSatServiceConnector{tokenByPartner: map[string]string{"foxtel": "token_foxtel", "sky": "token_sky"}}
+	server.PartnerSatServiceConnector = mock
+	InitSatTokenManager(server)
+
+	fields := log.Fields{"test": "partner_propagation"}
+	t1, err1 := GetLocalPartnerSatToken(fields, "foxtel")
+	assert.NoError(t, err1)
+
+	t2, err2 := GetLocalPartnerSatToken(fields, "sky")
+	assert.NoError(t, err2)
+	assert.Equal(t, "token_sky", t2.Token)
+	t3, err3 := GetLocalPartnerSatToken(fields, "foxtel")
+	assert.NoError(t, err3)
+	assert.Equal(t, "token_foxtel", t1.Token)
+	assert.Equal(t, "token_foxtel", t3.Token)
+	assert.Equal(t, []string{"foxtel", "sky"}, mock.partners)
+	assert.Equal(t, 2, mock.callCount)
+}
+
+func TestGetPartnerSatTokenFromSatService_FallbackWhenPartnerConnectorNil(t *testing.T) {
+	sc, _ := common.NewServerConfig("../config/sample_xconfwebconfig.conf")
+	server := NewXconfServer(sc, true, nil)
+	server.SetupMocks()
+
+	defaultMock := &MockSatServiceConnector{tokenByPartner: map[string]string{"": "default_token"}}
+	server.SatServiceConnector = defaultMock
+	server.PartnerSatServiceConnector = nil
+	InitSatTokenManager(server)
+
+	fields := log.Fields{"test": "partner_nil_fallback"}
+	tok, err := GetPartnerSatTokenFromSatService(fields, "foxtel")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, tok)
+	assert.Equal(t, "default_token", tok.AccessToken)
+	assert.Equal(t, 1, defaultMock.callCount)
+	assert.Empty(t, defaultMock.partners)
 }
 
 // Test SatTokenMgr getter/setter functions
@@ -84,6 +192,14 @@ func TestSatTokenMgr_TestOnly_Default(t *testing.T) {
 	assert.False(t, result)
 }
 
+func TestMockSatServiceConnector_SetSatClientCredentials(t *testing.T) {
+	m := &MockSatServiceConnector{}
+
+	m.SetSatClientCredentials("test-client-id", "test-client-secret")
+
+	assert.Equal(t, "test-client-id", m.clientID)
+	assert.Equal(t, "test-client-secret", m.clientSecret)
+}
 func TestSatTokenMgr_TestOnly_True(t *testing.T) {
 	mgr := NewSatTokenMgr(true)
 
