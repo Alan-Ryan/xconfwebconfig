@@ -42,7 +42,6 @@ const (
 	DTGR_PARTNER_ID  = "dt-gr"
 	GR_PREFIX        = "GR"
 	SN_PREFIX        = "sn-"
-	partnerRouteKey  = "partner_route"
 )
 
 type PodData struct {
@@ -212,7 +211,7 @@ func AddContextForPods(ws *xhttp.XconfServer, contextMap map[string]string, satT
 
 	tfields := common.FilterLogFields(fields)
 	accountServiceConnector := ws.AccountServiceConnector
-	if strings.EqualFold(contextMap[partnerRouteKey], "true") {
+	if usePartnerRoute(contextMap) {
 		if ws.PartnerAccountServiceConnector != nil {
 			accountServiceConnector = ws.PartnerAccountServiceConnector
 		} else {
@@ -346,7 +345,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 	var err error
 	tfields := common.FilterLogFields(fields)
 	accountServiceConnector := ws.AccountServiceConnector
-	if strings.EqualFold(contextMap[partnerRouteKey], "true") {
+	if usePartnerRoute(contextMap) {
 		if ws.PartnerAccountServiceConnector != nil {
 			accountServiceConnector = ws.PartnerAccountServiceConnector
 		} else {
@@ -518,14 +517,11 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 	}
 
 	contextMap[common.PASSED_PARTNER_ID] = contextMap[common.PARTNER_ID]
-	if usePartnerRoute(contextMap) {
-		contextMap[partnerRouteKey] = "true"
-	}
 
 	// getting local sat token
 	var localToken *xhttp.SatToken
 	var err error
-	if strings.EqualFold(contextMap[partnerRouteKey], "true") {
+	if usePartnerRoute(contextMap) {
 		localToken, err = xhttp.GetLocalPartnerSatToken(fields, strings.ToLower(contextMap[common.PASSED_PARTNER_ID]))
 	} else {
 		localToken, err = xhttp.GetLocalSatToken(fields)
@@ -601,24 +597,11 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 }
 
 func usePartnerRoute(contextMap map[string]string) bool {
-	enabled := Xc != nil && Xc.EnablePartnerRouting
 	partner := strings.ToUpper(strings.TrimSpace(contextMap[common.PARTNER_ID]))
-	accountID := strings.TrimSpace(contextMap[common.ACCOUNT_ID])
-	accountUnknown := accountID == "" || util.IsUnknownValue(accountID)
-	if !enabled {
+	if Xc == nil || !Xc.EnablePartnerRouting {
 		return false
 	}
-	if partner == "" {
-		return false
-	}
-	if Xc.PartnerSet == nil || Xc.PartnerSet.IsEmpty() {
-		return false
-	}
-	partnerMatched := Xc.PartnerSet.Contains(partner)
-	if !partnerMatched {
-		return false
-	}
-	if !accountUnknown {
+	if partner == "" || !Xc.PartnerSet.Contains(partner) {
 		return false
 	}
 	return true

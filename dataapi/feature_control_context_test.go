@@ -770,7 +770,7 @@ func TestUsePartnerRoute_DecisionMatrix(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "returns false when enabled and account id is known",
+			name: "returns true when enabled, partner matches, and account id is known",
 			xc: &XconfConfigs{
 				EnablePartnerRouting: true,
 				PartnerSet:           util.NewSet("FOXTEL"),
@@ -779,7 +779,7 @@ func TestUsePartnerRoute_DecisionMatrix(t *testing.T) {
 				common.PARTNER_ID: "foxtel",
 				common.ACCOUNT_ID: "acc-123",
 			},
-			expected: false,
+			expected: true,
 		},
 		{
 			name: "returns false when enabled and partner does not match partner set",

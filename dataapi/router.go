@@ -288,7 +288,7 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 	partnerIdValidationEnabled := conf.GetBoolean("xconfwebconfig.xconf.partner_id_validation_enabled", false)
 
 	partnerSet := util.NewSet()
-	partnerList := conf.GetString("xconfwebconfig.partner_services.partner_ids", "")
+	partnerList := conf.GetString("xconfwebconfig.partner_services.partner_list", "")
 	if !util.IsBlank(partnerList) {
 		partners := strings.Split(partnerList, ";")
 		for _, partner := range partners {
