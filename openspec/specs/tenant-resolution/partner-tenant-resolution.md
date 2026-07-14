@@ -48,7 +48,7 @@ Exact config key names/syntax are implementation details.
 - partnerId=partner6 -> tenantB
 - partnerId=partner7 -> tenantC
 - partnerId=partner8 -> tenantC
-- partnerId=someNewPartner with no mapping -> someNewPartner
+- partnerId=someNewPartner with no mapping -> SOMENEWPARTNER
 
 ## Compatibility and Non-Goals
 - No requirement for devices to send tenantId.
