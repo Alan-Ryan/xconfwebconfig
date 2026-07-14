@@ -69,7 +69,6 @@ func GetEstbFirmwareSwuBseHandler(w http.ResponseWriter, r *http.Request) {
 		xhttp.WriteXconfResponseAsText(w, 400, []byte(fmt.Sprintf("Required IpAddress value: '%s' is not a valid IpAddress", ipAddress)))
 		return
 	}
-	// call this method after any backend lookups that might populate partner info
 	tenantId := xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	estbFirmwareRuleBase := dataef.NewEstbFirmwareRuleBaseDefault()
 	bseConfiguration, _ := estbFirmwareRuleBase.GetBseConfiguration(tenantId, ip)
@@ -177,8 +176,6 @@ func GetFirmwareResponse(w http.ResponseWriter, r *http.Request, xw *xhttp.XResp
 	log.Debugf("GetEstbFirmwareSwuHandler call AddEstbFirmwareContext start ... queryParams %v", queryParams)
 	AddEstbFirmwareContext(Ws, r, contextMap, true, true, fields)
 	log.Debugf("GetEstbFirmwareSwuHandler call AddEstbFirmwareContext  ... end contextMap %v", contextMap)
-	// call this method after any backend lookups that might populate partner info
-	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	estbFirmwareRuleBase := dataef.NewEstbFirmwareRuleBaseDefault()
 	convertedContext := sharedef.GetContextConverted(contextMap)
 	evaluationResult, _ := estbFirmwareRuleBase.Eval(contextMap, convertedContext, contextMap[common.APPLICATION_TYPE], fields)

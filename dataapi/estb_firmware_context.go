@@ -329,6 +329,8 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 		}
 	}
 	coastTags := AddContextFromTaggingService(ws, contextMap, satToken, "", false, fields)
+	// call this method after any backend lookups that might populate partner info, but before group service call so tenantId is available for cached partner tags
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	xconfTags := AddGroupServiceFTContext(Ws, common.ESTB_MAC, contextMap, true, fields)
 	CompareTaggingSources(contextMap, coastTags, xconfTags, fields)
 	log.Debug(fmt.Sprintf("AddEstbFirmwareContext ... end contextMap %v", contextMap))
