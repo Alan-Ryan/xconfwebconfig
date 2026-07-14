@@ -16,7 +16,7 @@ var PartnerTenantMapping = map[string]string{}
 func ResolveTenantIdFromPartner(partnerId string) string {
 	defaultTenantId := db.GetDefaultTenantId()
 	trimmedPartnerId := strings.TrimSpace(partnerId)
-	// if device sends partner=unknown or empty partner, use default tenant id
+	// If device sends partnerId=unknown/noaccount or a blank partnerId, use the default tenantId
 	if util.IsUnknownValue(trimmedPartnerId) || trimmedPartnerId == "" {
 		return strings.ToUpper(defaultTenantId)
 	}
