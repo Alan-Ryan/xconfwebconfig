@@ -631,7 +631,7 @@ func (cm *CacheManager) loadChanges(ranges map[int64]*RangeInfo) ([]any, error) 
 	var result []any
 
 	for rowKey, rangeInfo := range ranges {
-		// TODO check if GetRange support tenantId is empty for logs table
+		// change_events table is not sharded, so we can use empty string for tenantId to get all changes
 		list, err := GetListingDao().GetRange("", TABLE_CHANGE_EVENTS, rowKey, rangeInfo)
 		if err != nil {
 			return nil, err

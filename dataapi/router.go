@@ -98,7 +98,6 @@ var registerOnce sync.Once
 func RegisterTables() {
 	registerOnce.Do(func() {
 		db.RegisterTableConfigSimple(db.TABLE_APP_SETTINGS, shared.NewAppSettingInf)
-		db.RegisterTableConfigSimple(db.TABLE_APPLICATION_TYPES, shared.NewApplicationTypeInf)
 		db.RegisterTableConfigSimple(db.TABLE_ENVIRONMENTS, shared.NewEnvironmentInf)
 		db.RegisterTableConfigSimple(db.TABLE_MODELS, shared.NewModelInf)
 		db.RegisterTableConfigSimple(db.TABLE_FEATURE_CONTROL_RULES, rfc.NewFeatureRuleInf)
@@ -158,13 +157,14 @@ func RegisterTables() {
 			TableName:       db.TABLE_CONFIG_CHANGE_LOGS,
 			ConstructorFunc: sharedef.NewConfigChangeLogInf,
 			Compressed:      true,
+			Unsharded:       true,
 			TTL:             90 * 24 * 60 * 60,
 		})
 
 		db.RegisterTableConfig(&db.TableInfo{
 			TableName:       db.TABLE_CHANGE_EVENTS,
 			ConstructorFunc: db.NewChangedDataInf,
-			TenantAgnostic:  true,
+			Unsharded:       true,
 			TTL:             86400 * 7, // one week
 		})
 
@@ -174,7 +174,7 @@ func RegisterTables() {
 			TableName:       db.TABLE_LOGS,
 			ConstructorFunc: sharedef.NewConfigChangeLogInf,
 			Compressed:      true,
-			TenantAgnostic:  true,
+			Unsharded:       true,
 			TTL:             90 * 24 * 60 * 60,
 		})
 	})

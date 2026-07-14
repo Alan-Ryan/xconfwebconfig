@@ -29,6 +29,7 @@ import (
 	"github.com/rdkcentral/xconfwebconfig/db"
 	"github.com/rdkcentral/xconfwebconfig/shared/firmware"
 	"github.com/rdkcentral/xconfwebconfig/util"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -67,6 +68,7 @@ type ConfigChangeLog struct {
 	Explanation        string                `json:"explanation,omitempty"`
 	FirmwareConfig     *FirmwareConfigFacade `json:"config"`
 	HasMinimumFirmware bool                  `json:"hasMinimumFirmware"`
+	TenantId           string                `json:"tenantId,omitempty"` // not available in Logs2 table
 }
 
 func (obj *ConfigChangeLog) GetUpdated() int64 {
@@ -201,6 +203,7 @@ func GetConfigChangeLogsOnly(tenantId string, mac string) []*ConfigChangeLog {
 }
 
 func SetLastConfigLog(tenantId string, mac string, configChangeLog *ConfigChangeLog) error {
+	configChangeLog.TenantId = tenantId
 	jsonData, err := json.Marshal(configChangeLog)
 	if err != nil {
 		return err
@@ -216,6 +219,7 @@ func SetLastConfigLog(tenantId string, mac string, configChangeLog *ConfigChange
 }
 
 func SetConfigChangeLog(tenantId string, mac string, configChangeLog *ConfigChangeLog) error {
+	configChangeLog.TenantId = tenantId
 	logTables := []string{db.TABLE_CONFIG_CHANGE_LOGS}
 	if db.IsDualWriteEnabled() {
 		// Write to Logs2 table for backward compatibility, but Logs2 will be eventually removed
@@ -248,9 +252,14 @@ func GetCurrentChangeLogId(tenantId string, tableName string, mac string) (strin
 		return "", err
 	}
 	var configLogs []*ConfigChangeLog
-	for _, log := range data {
-		configLog, ok := log.(*ConfigChangeLog)
+	for _, entry := range data {
+		configLog, ok := entry.(*ConfigChangeLog)
 		if ok {
+			// ensure tenantId matches the provided tenantId if it is set in the configLog
+			if configLog.TenantId != "" && configLog.TenantId != tenantId {
+				log.Errorf("TenantId mismatch for ConfigChangeLog (mac: %s): expected %s, got %s", mac, tenantId, configLog.TenantId)
+				continue
+			}
 			configLogs = append(configLogs, configLog)
 		}
 	}

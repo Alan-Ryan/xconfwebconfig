@@ -95,7 +95,12 @@ func (cd compressingDataDaoImpl) SetOne(tenantId string, tableName string, key s
 
 // DeleteOne delete Xconf record
 func (cd compressingDataDaoImpl) DeleteOne(tenantId string, tableName string, key string) error {
-	err := GetDatabaseClient().DeleteXconfData(tenantId, tableName, key)
+	tableInfo, err := GetTableInfo(tableName)
+	if err != nil {
+		return err
+	}
+
+	err = GetDatabaseClient().DeleteXconfData(tenantId, tableName, tableInfo.Unsharded, key)
 	return err
 }
 

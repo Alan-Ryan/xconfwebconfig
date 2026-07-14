@@ -19,7 +19,6 @@ package db
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -213,7 +212,12 @@ func (csd cachedSimpleDaoImpl) DeleteOne(tenantId string, tableName string, key 
 	}
 
 	// 1st delete from DB
-	err = GetDatabaseClient().DeleteXconfData(tenantId, tableName, key)
+	tableInfo, err := GetTableInfo(tableName)
+	if err != nil {
+		return err
+	}
+
+	err = GetDatabaseClient().DeleteXconfData(tenantId, tableName, tableInfo.Unsharded, key)
 	if err == nil {
 		// Calculate cache size since removal doesn't take place immediately
 		cacheSize := int32(cache.Size() - 1)
@@ -317,7 +321,7 @@ func (csd cachedSimpleDaoImpl) GetKeys(tenantId string, tableName string) ([]any
 }
 
 func (csd cachedSimpleDaoImpl) RefreshAll(tenantId string, tableName string) error {
-	log.Debug(fmt.Sprintf("Refresh cache for tenantId %s table %s...", tenantId, tableName))
+	log.WithFields(log.Fields{"tenantId": tenantId}).Debugf("Refresh cache for table %s...", tableName)
 
 	tableInfo, err := GetTableInfo(tableName)
 	if err != nil {
