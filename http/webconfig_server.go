@@ -203,26 +203,38 @@ func NewXconfServer(sc *common.ServerConfig, testOnly bool, ec *ExternalConnecto
 
 	satConnector := NewSatServiceConnector(conf, tlsConfig, ec.SatServiceConnector)
 	partnerSatConnector := NewSatServiceConnector(conf, tlsConfig, ec.PartnerSatServiceConnector)
-	if partnerSatHost := conf.GetString("xconfwebconfig.partner_services.sat.host"); partnerSatHost != "" {
+	partnerServicesEnabled := conf.GetBoolean("xconfwebconfig.partner_services.enabled", false)
+	if partnerServicesEnabled {
+		partnerSatHost := conf.GetString("xconfwebconfig.partner_services.sat.host")
+		if util.IsBlank(partnerSatHost) {
+			panic("xconfwebconfig.partner_services.sat.host is required when partner services are enabled")
+		}
 		partnerSatConnector.SetSatServiceHost(partnerSatHost)
-	}
-	partnerSatClientID := os.Getenv("PARTNER_SAT_CLIENT_ID")
-	if util.IsBlank(partnerSatClientID) {
-		partnerSatClientID = conf.GetString("xconfwebconfig.partner_services.sat.client_id")
-	}
-	partnerSatClientSecret := os.Getenv("PARTNER_SAT_CLIENT_SECRET")
-	if util.IsBlank(partnerSatClientSecret) {
-		partnerSatClientSecret = conf.GetString("xconfwebconfig.partner_services.sat.client_secret")
-	}
-	if !util.IsBlank(partnerSatClientID) && !util.IsBlank(partnerSatClientSecret) {
+
+		partnerSatClientID := os.Getenv("PARTNER_SAT_CLIENT_ID")
+		if util.IsBlank(partnerSatClientID) {
+			partnerSatClientID = conf.GetString("xconfwebconfig.partner_services.sat.client_id")
+			if util.IsBlank(partnerSatClientID) {
+				panic("No env PARTNER_SAT_CLIENT_ID")
+			}
+		}
+		partnerSatClientSecret := os.Getenv("PARTNER_SAT_CLIENT_SECRET")
+		if util.IsBlank(partnerSatClientSecret) {
+			partnerSatClientSecret = conf.GetString("xconfwebconfig.partner_services.sat.client_secret")
+			if util.IsBlank(partnerSatClientSecret) {
+				panic("No env PARTNER_SAT_CLIENT_SECRET")
+			}
+		}
 		partnerSatConnector.SetSatClientCredentials(partnerSatClientID, partnerSatClientSecret)
-	} else if !util.IsBlank(partnerSatClientID) || !util.IsBlank(partnerSatClientSecret) {
-		log.Info("partner SAT credential override is partially configured; using default SAT client credentials")
 	}
 
 	accountConnector := NewAccountServiceConnector(conf, tlsConfig, ec.AccountServiceConnector)
 	partnerAccountConnector := NewAccountServiceConnector(conf, tlsConfig, ec.PartnerAccountServiceConnector)
-	if partnerAccountHost := conf.GetString("xconfwebconfig.partner_services.account.host"); partnerAccountHost != "" {
+	if partnerServicesEnabled {
+		partnerAccountHost := conf.GetString("xconfwebconfig.partner_services.account.host")
+		if util.IsBlank(partnerAccountHost) {
+			panic("Partner host is required when partner services are enabled")
+		}
 		partnerAccountConnector.SetAccountServiceHost(partnerAccountHost)
 	}
 
