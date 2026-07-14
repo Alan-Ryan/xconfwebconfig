@@ -155,6 +155,8 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 			}
 		}
 	}
+	// call this method after any backend lookups that might populate partner info, but before group service call so tenantId is available for cached partner tags
+	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	coastTags := AddContextFromTaggingService(ws, contextMap, satToken, "", false, fields)
 	return coastTags, nil
 }

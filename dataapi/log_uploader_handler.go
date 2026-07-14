@@ -91,7 +91,6 @@ func GetContextMapAndSettingTypes(r *http.Request) (map[string]string, []string)
 	}
 	contextMap := make(map[string]string)
 	contextMap[common.APPLICATION_TYPE] = applicationType
-	contextMap[common.TENANT_ID] = xhttp.GetTenantId(r, "")
 	var settingTypes []string
 	if len(queryParams) > 0 {
 		for k, v := range queryParams {
@@ -116,9 +115,6 @@ func GetLogUploaderSettings(w http.ResponseWriter, r *http.Request, isTelemetry2
 		xhttp.Error(w, http.StatusInternalServerError, common.NotOK)
 		return
 	}
-	// audit_id-included logging example
-	// fields["sample_key"] = "sample_value"
-	// log.WithFields(fields).Debug("sample debug message")
 
 	contextMap, settingTypes := GetContextMapAndSettingTypes(r)
 	fields[common.ESTB_MAC_ADDRESS] = contextMap[common.ESTB_MAC_ADDRESS]

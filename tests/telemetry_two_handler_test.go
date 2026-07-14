@@ -60,6 +60,21 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 	stm := xwhttp.GetSatTokenManager()
 	stm.SetTestOnly(true)
 	// Walk(router)
+	defaultTenantId := db.GetDefaultTenantId()
+	originalPartnerTenantMapping := xwhttp.PartnerTenantMapping
+	xwhttp.PartnerTenantMapping = map[string]string{}
+	for partnerId, tenantId := range originalPartnerTenantMapping {
+		xwhttp.PartnerTenantMapping[partnerId] = tenantId
+	}
+	xwhttp.PartnerTenantMapping["COMCAST"] = defaultTenantId
+	defer func() {
+		xwhttp.PartnerTenantMapping = originalPartnerTenantMapping
+	}()
+	partnerTenantId := xwhttp.ResolveTenantIdFromPartner("comcast")
+	tenantIds := []string{defaultTenantId}
+	if partnerTenantId != "" && partnerTenantId != defaultTenantId {
+		tenantIds = append(tenantIds, partnerTenantId)
+	}
 
 	// set up codebig mock server for ok response
 	codebigMockServer := dataapi.SetupSatServiceMockServerOkResponse(t, *server)
@@ -72,13 +87,15 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 	assert.NilError(t, err)
 	for _, v := range t2Rules {
 		t2Rule := v
-		err = db.GetCachedSimpleDao().SetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID, &t2Rule)
-		assert.NilError(t, err)
-		itf, err := db.GetCachedSimpleDao().GetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID)
-		assert.NilError(t, err)
-		fetchedT2Rule, ok := itf.(*logupload.TelemetryTwoRule)
-		assert.Assert(t, ok)
-		assert.Assert(t, t2Rule.Equals(fetchedT2Rule))
+		for _, tenantId := range tenantIds {
+			err = db.GetCachedSimpleDao().SetOne(tenantId, db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID, &t2Rule)
+			assert.NilError(t, err)
+			itf, err := db.GetCachedSimpleDao().GetOne(tenantId, db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID)
+			assert.NilError(t, err)
+			fetchedT2Rule, ok := itf.(*logupload.TelemetryTwoRule)
+			assert.Assert(t, ok)
+			assert.Assert(t, t2Rule.Equals(fetchedT2Rule))
+		}
 	}
 
 	// build sample t2profiles
@@ -88,14 +105,16 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 		var srcT2Profile logupload.TelemetryTwoProfile
 		err = json.Unmarshal([]byte(sp1), &srcT2Profile)
 		assert.NilError(t, err)
-		err = db.GetCachedSimpleDao().SetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_PROFILES, profileUuid, &srcT2Profile)
-		assert.NilError(t, err)
-		// get a t2profile
-		itf, err := db.GetCachedSimpleDao().GetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_PROFILES, profileUuid)
-		assert.NilError(t, err)
-		tgtT2Profile, ok := itf.(*logupload.TelemetryTwoProfile)
-		assert.Assert(t, ok)
-		assert.DeepEqual(t, &srcT2Profile, tgtT2Profile)
+		for _, tenantId := range tenantIds {
+			err = db.GetCachedSimpleDao().SetOne(tenantId, db.TABLE_TELEMETRY_TWO_PROFILES, profileUuid, &srcT2Profile)
+			assert.NilError(t, err)
+			// get a t2profile
+			itf, err := db.GetCachedSimpleDao().GetOne(tenantId, db.TABLE_TELEMETRY_TWO_PROFILES, profileUuid)
+			assert.NilError(t, err)
+			tgtT2Profile, ok := itf.(*logupload.TelemetryTwoProfile)
+			assert.Assert(t, ok)
+			assert.DeepEqual(t, &srcT2Profile, tgtT2Profile)
+		}
 	}
 
 	// ==== insert an extra rule/profile for ill-formatted profile testing ====
@@ -103,27 +122,31 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 	assert.NilError(t, err)
 	for _, v := range t2Rules {
 		t2Rule := v
-		err = db.GetCachedSimpleDao().SetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID, &t2Rule)
-		assert.NilError(t, err)
-		itf, err := db.GetCachedSimpleDao().GetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID)
-		assert.NilError(t, err)
-		fetchedT2Rule, ok := itf.(*logupload.TelemetryTwoRule)
-		assert.Assert(t, ok)
-		assert.Assert(t, t2Rule.Equals(fetchedT2Rule))
+		for _, tenantId := range tenantIds {
+			err = db.GetCachedSimpleDao().SetOne(tenantId, db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID, &t2Rule)
+			assert.NilError(t, err)
+			itf, err := db.GetCachedSimpleDao().GetOne(tenantId, db.TABLE_TELEMETRY_TWO_RULES, t2Rule.ID)
+			assert.NilError(t, err)
+			fetchedT2Rule, ok := itf.(*logupload.TelemetryTwoRule)
+			assert.Assert(t, ok)
+			assert.Assert(t, t2Rule.Equals(fetchedT2Rule))
+		}
 	}
 	// write a t2profile
 	sp1 := fmt.Sprintf(MockTelemetryTwoProfileTemplate2, IllFormattedProfileUuid, IllFormattedProfileName)
 	var srcT2Profile logupload.TelemetryTwoProfile
 	err = json.Unmarshal([]byte(sp1), &srcT2Profile)
 	assert.NilError(t, err)
-	err = db.GetCachedSimpleDao().SetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_PROFILES, IllFormattedProfileUuid, &srcT2Profile)
-	assert.NilError(t, err)
-	// get a t2profile
-	itf, err := db.GetCachedSimpleDao().GetOne(db.GetDefaultTenantId(), db.TABLE_TELEMETRY_TWO_PROFILES, IllFormattedProfileUuid)
-	assert.NilError(t, err)
-	tgtT2Profile, ok := itf.(*logupload.TelemetryTwoProfile)
-	assert.Assert(t, ok)
-	assert.DeepEqual(t, &srcT2Profile, tgtT2Profile)
+	for _, tenantId := range tenantIds {
+		err = db.GetCachedSimpleDao().SetOne(tenantId, db.TABLE_TELEMETRY_TWO_PROFILES, IllFormattedProfileUuid, &srcT2Profile)
+		assert.NilError(t, err)
+		// get a t2profile
+		itf, err := db.GetCachedSimpleDao().GetOne(tenantId, db.TABLE_TELEMETRY_TWO_PROFILES, IllFormattedProfileUuid)
+		assert.NilError(t, err)
+		tgtT2Profile, ok := itf.(*logupload.TelemetryTwoProfile)
+		assert.Assert(t, ok)
+		assert.DeepEqual(t, &srcT2Profile, tgtT2Profile)
+	}
 
 	// ==== case 1 build the query params ====
 	params := [][]string{

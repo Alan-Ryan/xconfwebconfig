@@ -304,13 +304,22 @@ func GetGenericNamedListSetByType(tenantId string, typeName string) (*util.Set, 
 	cacheKey := typeName
 	cacheInst := cm.ApplicationCacheGet(tenantId, db.TABLE_GENERIC_NS_LIST, cacheKey)
 	if cacheInst != nil {
-		return cacheInst.(*util.Set), nil
+		switch setVal := cacheInst.(type) {
+		case *util.Set:
+			if setVal != nil {
+				return setVal, nil
+			}
+		case util.Set:
+			copied := setVal
+			return &copied, nil
+		}
 	}
-	result := util.NewSet()
+
 	entry, err := db.GetCachedSimpleDao().GetAllAsList(tenantId, db.TABLE_GENERIC_NS_LIST, 0)
 	if err != nil {
 		return nil, err
 	}
+	result := util.NewSet()
 	for _, obj := range entry {
 		nl := obj.(*GenericNamespacedList)
 		if nl.TypeName == typeName {

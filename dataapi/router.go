@@ -456,15 +456,8 @@ func LoadGroupServiceFeatureTags(key cache.Key) (cache.Value, error) {
 	if err != nil {
 		if isNotFoundError(err) {
 			log.WithFields(log.Fields{"error": err}).Debugf("No feature tags found for partner=%s", partnerID)
-
-			// Cache the absence of tags by storing nil
-			emptyTags := map[string]string{}
-			tenantId := xhttp.GetTenantId(nil, partnerID) // tenantId is not used in the current implementation of GetFeatureTagsHashedItems, passing nil for now
-			cacheErr := db.GetCacheManager().SetGroupServiceFeatureTags(tenantId, partnerID, emptyTags)
-			if cacheErr != nil {
-				log.WithFields(log.Fields{"error": cacheErr, "partnerId": partnerID}).Error("Failed to cache empty tags")
-			}
-			return emptyTags, nil
+			// Return empty tags; the LoadingCache will store this result automatically for the requesting tenant.
+			return map[string]string{}, nil
 		}
 		log.WithFields(log.Fields{"error": err}).Debugf("Error getting response from XDAS for partner=%s", partnerID)
 		return nil, err

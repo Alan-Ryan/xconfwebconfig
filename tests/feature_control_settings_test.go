@@ -185,6 +185,18 @@ func TestFeatureIsNotReturnedForUnknownPartnerTag(t *testing.T) {
 	performGetSettingsRequestAndVerifyFeatureControl(t, server, router, "?partnerId=unknown", nil, emptyFeatureResponse)
 }
 
+func TestFeatureIsNotReturnedForNoaccountPartnerTag(t *testing.T) {
+	DeleteAllEntities()
+	server, router := dataapi.GetTestXconfServer(testFile)
+
+	taggingMockServer := dataapi.SetupTaggingMockServerOkResponseDynamic(t, *server, fmt.Sprintf(`["%s"]`, PARTNER_TAG), fmt.Sprintf(URL_TAGS_PARTNER, XYZ_PARTNER))
+	defer taggingMockServer.Close()
+
+	createTagFeatureRule(PARTNER_TAG)
+	emptyFeatureResponse := []rfc.FeatureResponse{}
+	performGetSettingsRequestAndVerifyFeatureControl(t, server, router, "?partnerId=noaccount", nil, emptyFeatureResponse)
+}
+
 func Test200StatusCodeWhenTaggingServiceUnavailableAndEmptyConfigHash(t *testing.T) {
 	DeleteAllEntities()
 	server, router := dataapi.GetTestXconfServer(testFile)
