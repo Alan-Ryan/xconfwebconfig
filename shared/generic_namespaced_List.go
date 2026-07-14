@@ -297,9 +297,8 @@ func (obj *GenericNamespacedList) ValidateDataIntersection(tenantId string) erro
 }
 
 func GetGenericNamedListSetByType(tenantId string, typeName string) (*util.Set, error) {
-	result := util.NewSet()
 	if !IsValidType(typeName) {
-		return &result, fmt.Errorf("Invalid GenericNamespacedList typeName %s", typeName)
+		return nil, fmt.Errorf("Invalid GenericNamespacedList typeName %s", typeName)
 	}
 	cm := db.GetCacheManager()
 	cacheKey := typeName
@@ -318,8 +317,9 @@ func GetGenericNamedListSetByType(tenantId string, typeName string) (*util.Set, 
 
 	entry, err := db.GetCachedSimpleDao().GetAllAsList(tenantId, db.TABLE_GENERIC_NS_LIST, 0)
 	if err != nil {
-		return &result, err
+		return nil, err
 	}
+	result := util.NewSet()
 	for _, obj := range entry {
 		nl := obj.(*GenericNamespacedList)
 		if nl.TypeName == typeName {

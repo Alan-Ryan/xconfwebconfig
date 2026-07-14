@@ -11,6 +11,8 @@ import (
 
 // PartnerTenantMapping is externally loaded partner-to-tenant mapping.
 // Key is normalized partnerId (uppercase), value is tenantId.
+// Written once at startup; do not mutate after initialization without adding
+// synchronization (direct assignment in tests can cause races under go test ./...).
 var PartnerTenantMapping = map[string]string{}
 
 func ResolveTenantIdFromPartner(partnerId string) string {
