@@ -459,7 +459,7 @@ func LoadGroupServiceFeatureTags(key cache.Key) (cache.Value, error) {
 
 			// Cache the absence of tags by storing nil
 			emptyTags := map[string]string{}
-			tenantId := db.GetDefaultTenantId() // tenantId is not used in the current implementation of GetFeatureTagsHashedItems, passing nil for now
+			tenantId := db.GetDefaultTenantId() // tenantId is not used by GetFeatureTagsHashedItems; use default tenantId when caching tags
 			cacheErr := db.GetCacheManager().SetGroupServiceFeatureTags(tenantId, partnerID, emptyTags)
 			if cacheErr != nil {
 				log.WithFields(log.Fields{"error": cacheErr, "partnerId": partnerID}).Error("Failed to cache empty tags")
