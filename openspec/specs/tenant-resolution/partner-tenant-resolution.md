@@ -22,7 +22,7 @@ xconfadmin tenant behavior remains separate and auth-based; this spec does not a
 5. If partnerId is present, resolver MUST check configured partner-to-tenant mapping.
 6. Mapping lookup SHOULD be case-insensitive; if implementation constraints require case-sensitive behavior, this MUST be explicitly documented and tested.
 7. If partnerId matches any configured alias, resolver MUST return the mapped canonical tenant.
-8. If partnerId does not match any configured alias, resolver MUST return partnerId as tenantId.
+8. If partnerId does not match any configured alias, resolver MUST return partnerId normalized to the canonical tenantId format (e.g., uppercase) as tenantId.
 9. Resolver MUST be deterministic for the same input/configuration.
 10. Resolver MUST never return blank tenantId.
 11. Mapping configuration MUST be external/config-driven, not hardcoded.
