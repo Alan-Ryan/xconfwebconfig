@@ -130,7 +130,7 @@ type TableInfo struct {
 	Compressed      bool       // data is compressed
 	Split           bool       // data is split into multiple chunks
 	Cached          bool       // specifies whether to cache the data
-	TenantAgnostic  bool       // tenantId is not part of the partition key
+	Unsharded       bool       // tenantId is not part of the partition key
 	TTL             int        // TTL for the data
 }
 

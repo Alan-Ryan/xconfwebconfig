@@ -107,7 +107,12 @@ func (sd simpleDaoImpl) SetOne(tenantId string, tableName string, rowKey string,
 
 // DeleteOne delete Xconf record
 func (sd simpleDaoImpl) DeleteOne(tenantId string, tableName string, rowKey string) error {
-	err := GetDatabaseClient().DeleteXconfData(tenantId, tableName, rowKey)
+	tableInfo, err := GetTableInfo(tableName)
+	if err != nil {
+		return err
+	}
+
+	err = GetDatabaseClient().DeleteXconfData(tenantId, tableName, tableInfo.Unsharded, rowKey)
 	return err
 }
 

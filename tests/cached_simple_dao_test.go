@@ -372,15 +372,31 @@ func TestCacheChangedKeys(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// verify changed key record is created
-	changedList, err := db.GetListingDao().GetAllAsList(db.GetDefaultTenantId(), db.TABLE_CHANGE_EVENTS)
-	assert.NilError(t, err)
-	assert.Assert(t, len(changedList) == 1)
+	cc, ok := db.GetDatabaseClient().(*db.CassandraClient)
+	assert.Assert(t, ok)
 
-	data := *changedList[0].(*db.ChangedData)
-	assert.Equal(t, data.Operation, db.CREATE_OPERATION)
-	assert.Equal(t, data.CfName, db.TABLE_MODELS)
-	assert.Equal(t, data.ChangedKey, model.ID)
-	assert.Equal(t, data.ServerOriginId, common.ServerOriginId())
+	rows, err := cc.QueryXconfDataRows(fmt.Sprintf(`SELECT value FROM %s`, db.TABLE_CHANGE_EVENTS))
+	assert.NilError(t, err)
+	assert.Assert(t, len(rows) > 0)
+
+	found := false
+	for _, row := range rows {
+		val, ok := row["value"]
+		assert.Assert(t, ok)
+
+		var data db.ChangedData
+		err = json.Unmarshal(val.([]byte), &data)
+		assert.NilError(t, err)
+
+		if data.CfName == db.TABLE_MODELS && data.ChangedKey == model.ID {
+			assert.Equal(t, data.Operation, db.CREATE_OPERATION)
+			assert.Equal(t, data.ServerOriginId, common.ServerOriginId())
+			found = true
+			break
+		}
+	}
+
+	assert.Assert(t, found, "expected changed event row was not found")
 }
 
 func TestCacheChangeNotifier(t *testing.T) {

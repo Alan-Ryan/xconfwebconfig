@@ -157,13 +157,14 @@ func RegisterTables() {
 			TableName:       db.TABLE_CONFIG_CHANGE_LOGS,
 			ConstructorFunc: sharedef.NewConfigChangeLogInf,
 			Compressed:      true,
+			Unsharded:       true,
 			TTL:             90 * 24 * 60 * 60,
 		})
 
 		db.RegisterTableConfig(&db.TableInfo{
 			TableName:       db.TABLE_CHANGE_EVENTS,
 			ConstructorFunc: db.NewChangedDataInf,
-			TenantAgnostic:  true,
+			Unsharded:       true,
 			TTL:             86400 * 7, // one week
 		})
 
@@ -173,7 +174,7 @@ func RegisterTables() {
 			TableName:       db.TABLE_LOGS,
 			ConstructorFunc: sharedef.NewConfigChangeLogInf,
 			Compressed:      true,
-			TenantAgnostic:  true,
+			Unsharded:       true,
 			TTL:             90 * 24 * 60 * 60,
 		})
 	})

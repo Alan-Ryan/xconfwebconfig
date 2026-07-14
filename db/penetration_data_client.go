@@ -275,7 +275,7 @@ func (c *CassandraClient) GetPenetrationData(estbMac string) (map[string]any, er
 	if IsDualWriteEnabled() {
 		// When dual write is enabled, read from old PenetrationMetrics table for backward compatibility,
 		// until penetration_data table is fully migrated
-		tableName = c.getTableNameFromLogKeyspace(PenetrationMetricsTable)
+		tableName = c.GetTableNameFromLogKeyspace(PenetrationMetricsTable)
 	}
 
 	dict := util.Dict{}
@@ -300,7 +300,7 @@ func (c *CassandraClient) GetFwPenetrationData(estbMac string) (*FwPenetrationDa
 	if IsDualWriteEnabled() {
 		// When dual write is enabled, read from old PenetrationMetrics table for backward compatibility,
 		// until penetration_data table is fully migrated
-		tableName = c.getTableNameFromLogKeyspace(PenetrationMetricsTable)
+		tableName = c.GetTableNameFromLogKeyspace(PenetrationMetricsTable)
 	}
 
 	stmt := fmt.Sprintf(`SELECT * FROM %s WHERE %s=?`, tableName, EstbMacColumnName)
@@ -375,7 +375,7 @@ func (c *CassandraClient) GetRfcPenetrationData(estbMac string) (*RfcPenetration
 	if IsDualWriteEnabled() {
 		// When dual write is enabled, read from old PenetrationMetrics table for backward compatibility,
 		// until penetration_data table is fully migrated
-		tableName = c.getTableNameFromLogKeyspace(PenetrationMetricsTable)
+		tableName = c.GetTableNameFromLogKeyspace(PenetrationMetricsTable)
 	}
 
 	stmt := fmt.Sprintf(`SELECT * FROM %s WHERE %s=?`, tableName, EstbMacColumnName)
@@ -439,7 +439,7 @@ func (c *CassandraClient) updatePenetrationData(columns []string, values []any) 
 	tables := []string{PenetrationDataTable}
 	if IsDualWriteEnabled() {
 		// Write to PenetrationMetrics table for backward compatibility, but PenetrationMetrics will be eventually removed
-		tables = append(tables, c.getTableNameFromLogKeyspace(PenetrationMetricsTable))
+		tables = append(tables, c.GetTableNameFromLogKeyspace(PenetrationMetricsTable))
 	}
 	for _, tableName := range tables {
 		stmt := fmt.Sprintf(`INSERT INTO %s(%v) VALUES(%v)`, tableName, GetColumnsStr(columns), GetValuesStr(len(columns)))
@@ -460,7 +460,7 @@ func (c *CassandraClient) GetEstbIp(estbMac string) (string, error) {
 	if IsDualWriteEnabled() {
 		// When dual write is enabled, read from old PenetrationMetrics table for backward compatibility,
 		// until penetration_data table is fully migrated
-		tableName = c.getTableNameFromLogKeyspace(PenetrationMetricsTable)
+		tableName = c.GetTableNameFromLogKeyspace(PenetrationMetricsTable)
 	}
 
 	stmt := fmt.Sprintf(`SELECT * FROM %s WHERE %s=?`, tableName, EstbMacColumnName)
@@ -492,7 +492,7 @@ func (c *CassandraClient) GetSecurityTokenFields(estbMac string) (*SecurityToken
 	if IsDualWriteEnabled() {
 		// When dual write is enabled, read from old PenetrationMetrics table for backward compatibility,
 		// until penetration_data table is fully migrated
-		tableName = c.getTableNameFromLogKeyspace(PenetrationMetricsTable)
+		tableName = c.GetTableNameFromLogKeyspace(PenetrationMetricsTable)
 	}
 
 	c.ConcurrentQueries <- true

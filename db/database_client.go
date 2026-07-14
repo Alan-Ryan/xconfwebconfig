@@ -102,19 +102,17 @@ type DatabaseClient interface {
 	GetAllXconfKeys(tenantId string, tableName string) []string
 	GetAllXconfDataAsList(tenantId string, tableName string, maxResults int) [][]byte
 	GetAllXconfDataAsMap(tenantId string, tableName string, maxResults int) map[string][]byte
-	DeleteXconfData(tenantId string, tableName string, key string) error
+	DeleteXconfData(tenantId string, tableName string, unsharded bool, key string) error
 	DeleteAllXconfData(tenantId string, tableName string) error
 
 	// Xconf TwoKeys
-	GetAllXconfData(tenantId string, tableName string, key string) [][]byte
-	GetAllXconfDataTwoKeysRange(tenantId string, tableName string, key any, rangeInfo *RangeInfo) [][]byte
-	GetAllXconfDataTwoKeysAsMap(tenantId string, tableName string, key string, key2List []any) map[any][]byte
-	SetXconfDataTwoKeys(tenantId string, tableName string, key any, key2 any, value []byte, updatedAt int64, ttl int) error
-	GetXconfDataTwoKeys(tenantId string, tableName string, key string, key2 any) ([]byte, error)
-	DeleteXconfDataTwoKeys(tenantId string, tableName string, key string, key2 any) error
-	GetAllXconfTwoKeys(tenantId string, tableName string) []TwoKeys
-	GetAllXconfKey2s(tenantId string, tableName string, key string) []any
-
+	GetAllXconfData(tenantId string, tableName string, unsharded bool, key string) [][]byte
+	GetAllXconfDataTwoKeysRange(tenantId string, tableName string, unsharded bool, key any, rangeInfo *RangeInfo) [][]byte
+	GetAllXconfDataTwoKeysAsMap(tenantId string, tableName string, unsharded bool, key string, key2List []any) map[any][]byte
+	SetXconfDataTwoKeys(tenantId string, tableName string, unsharded bool, key any, key2 any, value []byte, updatedAt int64, ttl int) error
+	GetXconfDataTwoKeys(tenantId string, tableName string, unsharded bool, key string, key2 any) ([]byte, error)
+	DeleteXconfDataTwoKeys(tenantId string, tableName string, unsharded bool, key string, key2 any) error
+	GetAllXconfKey2s(tenantId string, tableName string, unsharded bool, key string) []any
 	// Xconf compressed data
 	SetXconfCompressedData(tenantId string, tableName string, key string, values [][]byte, updatedAt int64, ttl int) error
 	GetXconfCompressedData(tenantId string, tableName string, key string) ([]byte, error)
