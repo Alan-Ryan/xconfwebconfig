@@ -18,16 +18,16 @@ func ResolveTenantIdFromPartner(partnerId string) string {
 	trimmedPartnerId := strings.TrimSpace(partnerId)
 	// if device sends partner=unknown or empty partner, use default tenant id
 	if util.IsUnknownValue(trimmedPartnerId) || trimmedPartnerId == "" {
-		return defaultTenantId
+		return strings.ToUpper(defaultTenantId)
 	}
 
 	if tenantId, found := PartnerTenantMapping[strings.ToUpper(trimmedPartnerId)]; found {
 		if strings.TrimSpace(tenantId) != "" {
-			return tenantId
+			return strings.ToUpper(tenantId)
 		}
 	}
 
-	return trimmedPartnerId
+	return strings.ToUpper(trimmedPartnerId)
 }
 
 func LoadPartnerTenantMapping(conf *configuration.Config) map[string]string {
@@ -38,7 +38,7 @@ func LoadPartnerTenantMapping(conf *configuration.Config) map[string]string {
 		if trimmedPartnerId == "" || trimmedTenantId == "" {
 			continue
 		}
-		partnerTenantMapping[strings.ToUpper(trimmedPartnerId)] = trimmedTenantId
+		partnerTenantMapping[strings.ToUpper(trimmedPartnerId)] = strings.ToUpper(trimmedTenantId)
 	}
 
 	return partnerTenantMapping

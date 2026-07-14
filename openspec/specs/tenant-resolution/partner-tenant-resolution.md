@@ -12,7 +12,7 @@ xconfadmin tenant behavior remains separate and auth-based; this spec does not a
 - partnerId: Device-provided partner identifier in request context.
 - tenantId: Effective tenant identifier used for data access/rule evaluation.
 - default tenant: Configured fallback tenant used when tenant cannot otherwise be determined.
-- partner-to-tenant mapping: Configurable mapping from canonical tenant to one or more partner aliases.
+- partner-to-tenant mapping: Configurable mapping that resolves a partnerId to the tenantId used for data access and rule evaluation. Multiple partnerIds may resolve to the same tenantId.
 
 ## Requirements
 1. Device-facing tenant resolution MUST use partnerId as the primary input.

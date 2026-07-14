@@ -22,8 +22,8 @@ xconfwebconfig {
 	assert.NoError(t, err)
 
 	mapping := LoadPartnerTenantMapping(sc.Config)
-	assert.Equal(t, "tenantA", mapping["PARTNER1"])
-	assert.Equal(t, "tenantB", mapping["PARTNER2"])
+	assert.Equal(t, "TENANTA", mapping["PARTNER1"])
+	assert.Equal(t, "TENANTB", mapping["PARTNER2"])
 }
 
 func TestResolveTenantIdFromPartner_BlankPartnerUsesDefault(t *testing.T) {
@@ -67,10 +67,10 @@ func TestResolveTenantIdFromPartner_MappedPartners(t *testing.T) {
 		partnerId        string
 		expectedTenantId string
 	}{
-		{partnerId: "partner1", expectedTenantId: "tenantA"},
-		{partnerId: "partner2", expectedTenantId: "tenantB"},
-		{partnerId: "partner3", expectedTenantId: "tenantC"},
-		{partnerId: "partner4", expectedTenantId: "tenantC"},
+		{partnerId: "partner1", expectedTenantId: "TENANTA"},
+		{partnerId: "partner2", expectedTenantId: "TENANTB"},
+		{partnerId: "partner3", expectedTenantId: "TENANTC"},
+		{partnerId: "partner4", expectedTenantId: "TENANTC"},
 	}
 
 	for _, testCase := range testCases {
@@ -104,7 +104,7 @@ func TestResolveTenantIdFromPartner_CaseInsensitiveMatch(t *testing.T) {
 	})
 
 	resolved := ResolveTenantIdFromPartner("PartNer2")
-	assert.Equal(t, "tenantA", resolved)
+	assert.Equal(t, "TENANTA", resolved)
 }
 
 func TestResolveTenantIdFromPartner_NeverReturnsEmpty(t *testing.T) {

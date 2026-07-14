@@ -48,6 +48,9 @@ func GetEstbFirmwareSwuBseHandler(w http.ResponseWriter, r *http.Request) {
 		ipAddress = queryParams.Get(common.IP_ADDRESS)
 		isIpAddressPresent = true
 	}
+	if len(queryParams) > 0 && queryParams.Has(common.PARTNER_ID) {
+		contextMap[common.PARTNER_ID] = queryParams.Get(common.PARTNER_ID)
+	}
 	if !isIpAddressPresent {
 		if r.ContentLength != 0 {
 			body := xw.Body()

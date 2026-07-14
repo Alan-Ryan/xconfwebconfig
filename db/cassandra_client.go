@@ -1137,8 +1137,12 @@ func (c *CassandraClient) SetTenant(tenant *Tenant) error {
 	if err := c.Query(stmt, tenant.ID, tenant.Name, tenant.Updated).Exec(); err != nil {
 		return err
 	}
-	// Avoid GetCacheManager() recursion: SetTenant can be called while cache manager is initializing.
-	cacheManager.ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
+	// Avoid GetCacheManager() recursion/noisy logs: during cache manager init, the per-tenant
+	// application cache entry may not exist yet when SetTenant is called.
+	defaultTenantId := GetDefaultTenantId()
+	if _, ok := cacheManager.applicationCaches.Load(defaultTenantId); ok {
+		cacheManager.ApplicationCacheDelete(defaultTenantId, TABLE_TENANTS, "TenantIDList")
+	}
 	return nil
 }
 
@@ -1150,8 +1154,12 @@ func (c *CassandraClient) DeleteTenant(tenantId string) error {
 	if err := c.Query(stmt, tenantId).Exec(); err != nil {
 		return err
 	}
-	// Avoid GetCacheManager() recursion while cache manager init is in progress.
-	cacheManager.ApplicationCacheDelete(GetDefaultTenantId(), TABLE_TENANTS, "TenantIDList")
+	// Avoid GetCacheManager() recursion/noisy logs: during cache manager init, the per-tenant
+	// application cache entry may not exist yet when DeleteTenant is called.
+	defaultTenantId := GetDefaultTenantId()
+	if _, ok := cacheManager.applicationCaches.Load(defaultTenantId); ok {
+		cacheManager.ApplicationCacheDelete(defaultTenantId, TABLE_TENANTS, "TenantIDList")
+	}
 	return nil
 }
 
