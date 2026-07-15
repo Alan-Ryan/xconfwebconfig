@@ -85,7 +85,6 @@ func GetFeatureControlSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	clientCertExpiry := GetClientCertExpiryHeaderValue(r)
 	AddCertExpiryToContextMap(contextMap, clientCertExpiry)
 	AddClientCertDurationToContext(contextMap, clientCertExpiry)
-	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 
 	ipInSameNetwork := true
 	canPrecookRfcResponse := false
