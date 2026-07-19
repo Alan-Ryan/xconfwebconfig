@@ -539,16 +539,10 @@ func GetFirmwareRuleAllAsListDB(tenantId string) ([]*FirmwareRule, error) {
 		return nil, err
 	}
 
-	if len(rulelst) == 0 {
-		return nil, common.NotFound
-	}
+	rulereflst := make([]*FirmwareRule, len(rulelst))
 
-	//var rulereflst = make([]*FirmwareRule, 0, len(rulelst))
-	var rulereflst []*FirmwareRule
-
-	for _, r := range rulelst {
-		frule := r.(*FirmwareRule)
-		rulereflst = append(rulereflst, frule)
+	for i, r := range rulelst {
+		rulereflst[i] = r.(*FirmwareRule)
 	}
 
 	cm.ApplicationCacheSet(tenantId, db.TABLE_FIRMWARE_RULES, cacheKey, rulereflst)
@@ -563,11 +557,10 @@ func GetFirmwareRuleAllAsListDBForAdmin(tenantId string) ([]*FirmwareRule, error
 		return nil, err
 	}
 
-	var rulereflst []*FirmwareRule
+	rulereflst := make([]*FirmwareRule, len(rulelst))
 
-	for _, r := range rulelst {
-		frule := r.(*FirmwareRule)
-		rulereflst = append(rulereflst, frule)
+	for i, r := range rulelst {
+		rulereflst[i] = r.(*FirmwareRule)
 	}
 	return rulereflst, nil
 }
@@ -585,21 +578,17 @@ func GetFirmwareRulesByApplicationType(tenantId string, applicationType string) 
 		return nil, err
 	}
 
-	if len(rulelst) == 0 {
-		return nil, common.NotFound
-	}
-
-	filtereddRules := make([]*FirmwareRule, 0, len(rulelst))
+	filteredRules := make([]*FirmwareRule, 0, len(rulelst))
 
 	for _, rule := range rulelst {
 		if rule.ApplicationType == applicationType {
-			filtereddRules = append(filtereddRules, rule)
+			filteredRules = append(filteredRules, rule)
 		}
 	}
 
-	cm.ApplicationCacheSet(tenantId, db.TABLE_FIRMWARE_RULES, cacheKey, filtereddRules)
+	cm.ApplicationCacheSet(tenantId, db.TABLE_FIRMWARE_RULES, cacheKey, filteredRules)
 
-	return filtereddRules, nil
+	return filteredRules, nil
 }
 
 func GetEnvModelFirmwareRules(tenantId string, applicationType string) ([]*FirmwareRule, error) {
@@ -707,11 +696,7 @@ func GetFirmwareRuleAllAsListByApplicationTypeForAS(tenantId string, application
 		return nil, err
 	}
 
-	if len(rulemap) == 0 {
-		return nil, common.NotFound
-	}
-
-	result := map[string][]*FirmwareRule{}
+	result := make(map[string][]*FirmwareRule, len(rulemap))
 
 	for _, v := range rulemap {
 		rule := v.(*FirmwareRule)
@@ -767,12 +752,7 @@ func GetFirmwareRuleTemplateAllAsListDBForAS(tenantId string, actionType Applica
 		return nil, err
 	}
 
-	if tmprulelst == nil {
-		log.Error("Error load all template rules == failed to load , nil result")
-		return nil, err
-	}
-
-	var rulereflst []*FirmwareRuleTemplate
+	rulereflst := make([]*FirmwareRuleTemplate, 0, len(tmprulelst))
 	for _, tr := range tmprulelst {
 		tmprule := tr.(*FirmwareRuleTemplate)
 		if actionType == "" || tmprule.ApplicableAction.ActionType == actionType {
@@ -794,11 +774,6 @@ func GetFirmwareRuleTemplateAllAsListByActionType(tenantId string, actionType Ap
 	tmprulelst, err := db.GetCachedSimpleDao().GetAllAsList(tenantId, db.TABLE_FIRMWARE_RULE_TEMPLATES, 0)
 	if err != nil {
 		log.Error(fmt.Sprintf("Error load all template rules %v", err))
-		return nil, err
-	}
-
-	if len(tmprulelst) == 0 {
-		log.Error("Error load all template rules empty of result")
 		return nil, err
 	}
 
