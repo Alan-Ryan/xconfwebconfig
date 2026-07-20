@@ -90,6 +90,8 @@ type XconfConfigs struct {
 	ValidPartnerIdRegex          *regexp.Regexp
 	SecurityTokenManagerEnabled  bool
 	EnableTaggingComparison      bool
+	EnablePartnerRouting         bool
+	PartnerSet                   util.Set
 }
 
 // Function to register the table name and the corresponding model/struct constructor
@@ -284,6 +286,15 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 	auxFirmwareList := getAuxiliaryFirmwares(conf.GetString("xconfwebconfig.xconf.auxiliary_extensions"))
 	partnerIdValidationEnabled := conf.GetBoolean("xconfwebconfig.xconf.partner_id_validation_enabled", false)
 
+	partnerSet := util.NewSet()
+	partnerList := conf.GetString("xconfwebconfig.partner_services.partner_list", "")
+	if !util.IsBlank(partnerList) {
+		partners := strings.Split(partnerList, ";")
+		for _, partner := range partners {
+			partnerSet.Add(strings.ToUpper(strings.TrimSpace(partner)))
+		}
+	}
+
 	// Partner ID regex config
 	const defaultValidPartnerIdRegex = `^[A-Za-z0-9_.\-,:;]{3,32}$`
 	validPartnerIdRegexStr := conf.GetString("xconfwebconfig.xconf.valid_partner_id_regex", defaultValidPartnerIdRegex)
@@ -339,6 +350,8 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 		PartnerIdValidationEnabled:   partnerIdValidationEnabled,
 		SecurityTokenManagerEnabled:  conf.GetBoolean("xconfwebconfig.xconf.security_token_manager_enabled"),
 		EnableTaggingComparison:      conf.GetBoolean("xconfwebconfig.xconf.enable_tagging_comparison"),
+		EnablePartnerRouting:         conf.GetBoolean("xconfwebconfig.partner_services.enabled", false),
+		PartnerSet:                   partnerSet,
 	}
 	return xc
 }
