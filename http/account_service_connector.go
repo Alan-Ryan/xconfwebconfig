@@ -130,7 +130,7 @@ func (c *DefaultAccountService) GetAccountData(serviceAccountId string, token st
 }
 
 func (c *DefaultAccountService) GetDevices(macKey string, macValue string, token string, fields log.Fields) (AccountServiceDevices, error) {
-	url := fmt.Sprintf(c.getDevicesPath, c.AccountServiceHost(), url.PathEscape(macKey), url.PathEscape(macValue))
+	url := fmt.Sprintf(c.getDevicesPath, c.AccountServiceHost(), url.QueryEscape(macKey), url.QueryEscape(macValue))
 	headers := map[string]string{
 		common.HeaderAuthorization: fmt.Sprintf("Bearer %s", token),
 		common.HeaderUserAgent:     common.HeaderXconfDataService,
