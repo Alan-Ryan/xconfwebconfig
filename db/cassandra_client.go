@@ -51,7 +51,7 @@ const (
 	DefaultXpcKeyspace                   = "xpc"
 	DefaultXpcTestKeyspace               = "xpc_test_keyspace"
 	DefaultXpcPrecookTableName           = "reference_document"
-	DefaultXconfRecookingStatusTableName = "RecookingStatus"
+	DefaultXconfRecookingStatusTableName = "recooking_status"
 	LockNameDelimiter                    = "|"
 
 	// DO NOT CHANGE UNLESS YOU KNOW WHAT YOU ARE DOING
