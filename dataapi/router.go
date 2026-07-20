@@ -90,6 +90,8 @@ type XconfConfigs struct {
 	SecurityTokenManagerEnabled  bool
 	EnableTaggingComparison      bool
 	AccountTypeModelSet          util.Set
+	EnablePartnerRouting         bool
+	PartnerSet                   util.Set
 }
 
 // Function to register the table name and the corresponding model/struct constructor
@@ -345,6 +347,8 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 		SecurityTokenManagerEnabled:  conf.GetBoolean("xconfwebconfig.xconf.security_token_manager_enabled"),
 		EnableTaggingComparison:      conf.GetBoolean("xconfwebconfig.xconf.enable_tagging_comparison"),
 		AccountTypeModelSet:          accountTypeModelSet,
+		EnablePartnerRouting:         conf.GetBoolean("xconfwebconfig.partner_services.enabled", false),
+		PartnerSet:                   partnerSet,
 	}
 	return xc
 }
