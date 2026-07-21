@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/go-akka/configuration"
@@ -290,6 +291,40 @@ func TestDefaultAccountService_GetAccountData_InvalidJSON(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, "", account.Id)
+}
+
+func TestDefaultAccountService_GetAccountData_EscapesPathSegment(t *testing.T) {
+	serviceAccountId := "account/../123?inject=true"
+
+	var receivedPath string
+	var receivedRequestURI string
+	var receivedQuery string
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.EscapedPath()
+		receivedRequestURI = r.RequestURI
+		receivedQuery = r.URL.RawQuery
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"acc-123","data":{"attributes":{"timeZone":"UTC","countryCode":"US"}}}`))
+	}))
+	defer mockServer.Close()
+
+	config := configuration.ParseString("")
+	service := &DefaultAccountService{
+		HttpClient:     NewHttpClient(config, "test-service", nil),
+		host:           mockServer.URL,
+		getAccountPath: "%s/testaccount/%s",
+		getDevicesPath: "%s/testdevices?%s=%s",
+	}
+
+	fields := log.Fields{"test": "path_escape_regression"}
+	_, err := service.GetAccountData(serviceAccountId, "test-token", fields)
+
+	assert.NoError(t, err)
+	expectedPath := fmt.Sprintf("/testaccount/%s", url.PathEscape(serviceAccountId))
+	assert.Equal(t, expectedPath, receivedPath)
+	assert.Equal(t, expectedPath, receivedRequestURI)
+	assert.Equal(t, "", receivedQuery)
 }
 
 // Test GetDevices with mocked HTTP server (0% coverage function)
