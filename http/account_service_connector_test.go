@@ -376,3 +376,38 @@ func TestDefaultAccountService_GetDevices_HTTPError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "", devices.Id)
 }
+
+func TestDefaultAccountService_GetDevices_EscapesQueryParams(t *testing.T) {
+	macKey := "estbMacAddress&partner"
+	macValue := "11:22:33/44:55:66?x=y"
+
+	var receivedPath string
+	var receivedRawQuery string
+	var decodedValue string
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.EscapedPath()
+		receivedRawQuery = r.URL.RawQuery
+		decodedValue = r.URL.Query().Get(macKey)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"id":"device-123","data":{"partner":"Comcast","serviceAccountId":"/accounts/12345"}}]`))
+	}))
+	defer mockServer.Close()
+
+	config := configuration.ParseString("")
+	service := &DefaultAccountService{
+		HttpClient:     NewHttpClient(config, "test-service", nil),
+		host:           mockServer.URL,
+		getAccountPath: "%s/testaccount/%s",
+		getDevicesPath: "%s/testdevices?%s=%s",
+	}
+
+	fields := log.Fields{"test": "query_escape_regression"}
+	devices, err := service.GetDevices(macKey, macValue, "test-token", fields)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "/testdevices", receivedPath)
+	assert.Equal(t, fmt.Sprintf("%s=%s", url.QueryEscape(macKey), url.QueryEscape(macValue)), receivedRawQuery)
+	assert.Equal(t, macValue, decodedValue)
+	assert.Equal(t, "device-123", devices.Id)
+}
