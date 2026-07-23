@@ -3,117 +3,84 @@ package http
 import (
 	"testing"
 
-	"github.com/rdkcentral/xconfwebconfig/common"
 	"github.com/rdkcentral/xconfwebconfig/db"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadPartnerTenantMapping(t *testing.T) {
-	sc, err := common.NewServerConfigFromText(`
-xconfwebconfig {
-  xconf {
-    partner_tenant_mapping = {
-      "partner1": "tenantA"
-      "partner2": "tenantB"
-    }
-  }
-}
-`)
-	assert.NoError(t, err)
-
-	mapping := LoadPartnerTenantMapping(sc.Config)
-	assert.Equal(t, "TENANTA", mapping["PARTNER1"])
-	assert.Equal(t, "TENANTB", mapping["PARTNER2"])
+func withTenantIdsForTest(ids []string, fn func()) {
+	orig := getCachedTenantIds
+	getCachedTenantIds = func() []string { return ids }
+	defer func() { getCachedTenantIds = orig }()
+	fn()
 }
 
 func TestResolveTenantIdFromPartner_BlankPartnerUsesDefault(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
+	withTenantIdsForTest([]string{}, func() {
+		resolved := ResolveTenantIdFromPartner("")
+		assert.Equal(t, db.GetDefaultTenantId(), resolved)
 	})
-
-	resolved := ResolveTenantIdFromPartner("")
-	assert.Equal(t, db.GetDefaultTenantId(), resolved)
 }
 
 func TestResolveTenantIdFromPartner_UnknownOrNoaccountUsesDefault(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
+	withTenantIdsForTest([]string{}, func() {
+		testCases := []string{"unknown", "Unknown", "noaccount", "NoAccount"}
+		for _, partnerId := range testCases {
+			resolved := ResolveTenantIdFromPartner(partnerId)
+			assert.Equal(t, db.GetDefaultTenantId(), resolved)
+		}
 	})
+}
 
-	testCases := []string{"unknown", "Unknown", "noaccount", "NoAccount"}
-	for _, partnerId := range testCases {
-		resolved := ResolveTenantIdFromPartner(partnerId)
+func TestResolveTenantIdFromPartner_ExactMatchCaseInsensitive(t *testing.T) {
+	withTenantIdsForTest([]string{"COMCAST", "SKY", "ROGERS"}, func() {
+		testCases := []struct {
+			partnerId        string
+			expectedTenantId string
+		}{
+			{"comcast", "COMCAST"},
+			{"COMCAST", "COMCAST"},
+			{"sky", "SKY"},
+			{"Rogers", "ROGERS"},
+		}
+		for _, tc := range testCases {
+			resolved := ResolveTenantIdFromPartner(tc.partnerId)
+			assert.Equal(t, tc.expectedTenantId, resolved)
+		}
+	})
+}
+
+func TestResolveTenantIdFromPartner_PrefixMatch(t *testing.T) {
+	withTenantIdsForTest([]string{"COMCAST"}, func() {
+		resolved := ResolveTenantIdFromPartner("comcast-dev")
+		assert.Equal(t, "COMCAST", resolved)
+	})
+}
+
+func TestResolveTenantIdFromPartner_LongestPrefixWins(t *testing.T) {
+	withTenantIdsForTest([]string{"COMCAST", "COMCAST-DEV"}, func() {
+		resolved := ResolveTenantIdFromPartner("comcast-dev-foo")
+		assert.Equal(t, "COMCAST-DEV", resolved)
+	})
+}
+
+func TestResolveTenantIdFromPartner_UnmappedReturnsDefault(t *testing.T) {
+	withTenantIdsForTest([]string{"COMCAST", "SKY"}, func() {
+		resolved := ResolveTenantIdFromPartner("cox")
 		assert.Equal(t, db.GetDefaultTenantId(), resolved)
-	}
-}
-
-func TestResolveTenantIdFromPartner_MappedPartners(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{
-		"PARTNER1": "tenantA",
-		"PARTNER2": "tenantB",
-		"PARTNER3": "tenantC",
-		"PARTNER4": "tenantC",
-	}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
 	})
-
-	testCases := []struct {
-		partnerId        string
-		expectedTenantId string
-	}{
-		{partnerId: "partner1", expectedTenantId: "TENANTA"},
-		{partnerId: "partner2", expectedTenantId: "TENANTB"},
-		{partnerId: "partner3", expectedTenantId: "TENANTC"},
-		{partnerId: "partner4", expectedTenantId: "TENANTC"},
-	}
-
-	for _, testCase := range testCases {
-		resolved := ResolveTenantIdFromPartner(testCase.partnerId)
-		assert.Equal(t, testCase.expectedTenantId, resolved)
-	}
-}
-
-func TestResolveTenantIdFromPartner_UnmappedReturnsPartner(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{
-		"PARTNER1": "tenantA",
-		"PARTNER2": "tenantB",
-	}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
-	})
-
-	resolved := ResolveTenantIdFromPartner("SOMENEWPARTNER")
-	assert.Equal(t, "SOMENEWPARTNER", resolved)
-}
-
-func TestResolveTenantIdFromPartner_CaseInsensitiveMatch(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{
-		"PARTNER1": "tenantA",
-		"PARTNER2": "tenantA",
-	}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
-	})
-
-	resolved := ResolveTenantIdFromPartner("PartNer2")
-	assert.Equal(t, "TENANTA", resolved)
 }
 
 func TestResolveTenantIdFromPartner_NeverReturnsEmpty(t *testing.T) {
-	originalMapping := PartnerTenantMapping
-	PartnerTenantMapping = map[string]string{}
-	t.Cleanup(func() {
-		PartnerTenantMapping = originalMapping
+	withTenantIdsForTest([]string{}, func() {
+		resolved := ResolveTenantIdFromPartner("   ")
+		assert.NotEmpty(t, resolved)
 	})
-
-	resolved := ResolveTenantIdFromPartner("   ")
-	assert.NotEmpty(t, resolved)
 }
+
+func TestResolveTenantIdFromPartner_WhitespaceIsTrimmed(t *testing.T) {
+	withTenantIdsForTest([]string{"COMCAST"}, func() {
+		resolved := ResolveTenantIdFromPartner("  comcast  ")
+		assert.Equal(t, "COMCAST", resolved)
+	})
+}
+

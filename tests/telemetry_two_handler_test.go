@@ -61,15 +61,6 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 	stm.SetTestOnly(true)
 	// Walk(router)
 	defaultTenantId := db.GetDefaultTenantId()
-	originalPartnerTenantMapping := xwhttp.PartnerTenantMapping
-	xwhttp.PartnerTenantMapping = map[string]string{}
-	for partnerId, tenantId := range originalPartnerTenantMapping {
-		xwhttp.PartnerTenantMapping[partnerId] = tenantId
-	}
-	xwhttp.PartnerTenantMapping["COMCAST"] = defaultTenantId
-	defer func() {
-		xwhttp.PartnerTenantMapping = originalPartnerTenantMapping
-	}()
 	partnerTenantId := xwhttp.ResolveTenantIdFromPartner("comcast")
 	tenantIds := []string{defaultTenantId}
 	if partnerTenantId != "" && partnerTenantId != defaultTenantId {
