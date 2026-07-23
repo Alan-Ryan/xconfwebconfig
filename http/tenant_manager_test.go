@@ -32,15 +32,15 @@ func TestResolveTenantIdFromPartner_UnknownOrNoaccountUsesDefault(t *testing.T) 
 }
 
 func TestResolveTenantIdFromPartner_ExactMatchCaseInsensitive(t *testing.T) {
-	withTenantIdsForTest([]string{"COMCAST", "SKY", "ROGERS"}, func() {
+	withTenantIdsForTest([]string{"PARTNER1", "TEST1", "TEST2"}, func() {
 		testCases := []struct {
 			partnerId        string
 			expectedTenantId string
 		}{
-			{"comcast", "COMCAST"},
-			{"COMCAST", "COMCAST"},
-			{"sky", "SKY"},
-			{"Rogers", "ROGERS"},
+			{"partner1", "PARTNER1"},
+			{"PARTNER1", "PARTNER1"},
+			{"test1", "TEST1"},
+			{"Test2", "TEST2"},
 		}
 		for _, tc := range testCases {
 			resolved := ResolveTenantIdFromPartner(tc.partnerId)
@@ -50,22 +50,22 @@ func TestResolveTenantIdFromPartner_ExactMatchCaseInsensitive(t *testing.T) {
 }
 
 func TestResolveTenantIdFromPartner_PrefixMatch(t *testing.T) {
-	withTenantIdsForTest([]string{"COMCAST"}, func() {
-		resolved := ResolveTenantIdFromPartner("comcast-dev")
-		assert.Equal(t, "COMCAST", resolved)
+	withTenantIdsForTest([]string{"PARTNER"}, func() {
+		resolved := ResolveTenantIdFromPartner("partner-dev")
+		assert.Equal(t, "PARTNER", resolved)
 	})
 }
 
 func TestResolveTenantIdFromPartner_LongestPrefixWins(t *testing.T) {
-	withTenantIdsForTest([]string{"COMCAST", "COMCAST-DEV"}, func() {
-		resolved := ResolveTenantIdFromPartner("comcast-dev-foo")
-		assert.Equal(t, "COMCAST-DEV", resolved)
+	withTenantIdsForTest([]string{"PARTNER", "PARTNER-DEV"}, func() {
+		resolved := ResolveTenantIdFromPartner("partner-dev-foo")
+		assert.Equal(t, "PARTNER-DEV", resolved)
 	})
 }
 
 func TestResolveTenantIdFromPartner_UnmappedReturnsDefault(t *testing.T) {
-	withTenantIdsForTest([]string{"COMCAST", "SKY"}, func() {
-		resolved := ResolveTenantIdFromPartner("cox")
+	withTenantIdsForTest([]string{"PARTNER", "TEST"}, func() {
+		resolved := ResolveTenantIdFromPartner("other")
 		assert.Equal(t, db.GetDefaultTenantId(), resolved)
 	})
 }
@@ -78,9 +78,8 @@ func TestResolveTenantIdFromPartner_NeverReturnsEmpty(t *testing.T) {
 }
 
 func TestResolveTenantIdFromPartner_WhitespaceIsTrimmed(t *testing.T) {
-	withTenantIdsForTest([]string{"COMCAST"}, func() {
-		resolved := ResolveTenantIdFromPartner("  comcast  ")
-		assert.Equal(t, "COMCAST", resolved)
+	withTenantIdsForTest([]string{"PARTNER1"}, func() {
+		resolved := ResolveTenantIdFromPartner("  partner1  ")
+		assert.Equal(t, "PARTNER1", resolved)
 	})
 }
-
