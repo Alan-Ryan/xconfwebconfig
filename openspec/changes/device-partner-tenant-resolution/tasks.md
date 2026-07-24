@@ -21,7 +21,7 @@
 - [X] Ensure missing/blank partnerId resolves to configured default tenant.
 - [X] Ensure exact-match partner resolves to matching tenant ID from tenant table.
 - [X] Ensure prefix-match partner resolves to matching tenant ID (longest prefix wins).
-- [X] Ensure unmapped partnerId resolves to partnerId itself.
+- [X] Ensure unmapped partnerId resolves to configured default tenant.
 - [X] Ensure tenant resolution is deterministic and never returns blank.
 - [X] Ensure matching behavior is case-insensitive (uppercase normalization applied to both partnerId and tenant IDs).
 

@@ -2,14 +2,30 @@ package http
 
 import (
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/rdkcentral/xconfwebconfig/db"
 	"github.com/rdkcentral/xconfwebconfig/util"
 )
 
-const tenantCacheKey = "TenantIDList"
+const (
+	tenantCacheKey = "TenantIDList"
+	tenantCacheTTL = 5 * time.Minute // Lightweight in-process cache TTL
+)
+
+// tenantIdsCacheEntry holds cached tenant IDs with a timestamp for TTL validation
+type tenantIdsCacheEntry struct {
+	ids       []string
+	timestamp int64 // Unix nanoseconds
+}
+
+// tenantIdsCache is a lightweight in-process cache that works even when optional application cache is disabled.
+// This prevents per-request DB queries on device-facing request paths.
+var tenantIdsCache atomic.Value // stores *tenantIdsCacheEntry or nil
 
 // getCachedTenantIds returns all tenant IDs from cache or DB.
+// Uses a lightweight in-process cache to avoid per-request DB queries when application cache is disabled.
 // Declared as a variable so tests can substitute a lightweight stub.
 var getCachedTenantIds = func() []string {
 	dbClient := db.GetDatabaseClient()
@@ -17,15 +33,14 @@ var getCachedTenantIds = func() []string {
 		return []string{}
 	}
 
-	cm := db.GetCacheManager()
-	defaultTenantId := db.GetDefaultTenantId()
-	cached := cm.ApplicationCacheGet(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey)
-	if cached != nil {
-		if tenantIds, ok := cached.([]string); ok {
-			return tenantIds
+	// Check lightweight in-process cache first (works even if optional application cache is disabled)
+	if entry, ok := tenantIdsCache.Load().(*tenantIdsCacheEntry); ok {
+		if time.Now().UnixNano()-entry.timestamp < int64(tenantCacheTTL) {
+			return entry.ids
 		}
 	}
 
+	// Cache miss or expired; query database
 	tenants := dbClient.GetAllTenants()
 	tenantIds := make([]string, 0, len(tenants))
 	for _, t := range tenants {
@@ -35,7 +50,17 @@ var getCachedTenantIds = func() []string {
 		tenantIds = append(tenantIds, strings.ToUpper(t.ID))
 	}
 
+	// Store in lightweight cache
+	tenantIdsCache.Store(&tenantIdsCacheEntry{
+		ids:       tenantIds,
+		timestamp: time.Now().UnixNano(),
+	})
+
+	// Also store in optional application cache if enabled
+	cm := db.GetCacheManager()
+	defaultTenantId := db.GetDefaultTenantId()
 	cm.ApplicationCacheSet(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey, tenantIds)
+
 	return tenantIds
 }
 
@@ -47,6 +72,14 @@ var getCachedTenantIds = func() []string {
 //  3. A tenant ID in the table is a prefix of the partnerId → longest matching prefix wins.
 //  4. No match → default tenant.
 func ResolveTenantIdFromPartner(partnerId string) string {
+	tenantIds := getCachedTenantIds()
+	return resolveTenantIdFromPartnerWithIds(partnerId, tenantIds)
+}
+
+// resolveTenantIdFromPartnerWithIds resolves a partnerId to a tenantId using the provided tenant IDs.
+// This is a pure helper function used for both production code and unit testing.
+// It accepts tenantIds as a parameter to avoid global state mutations in tests.
+func resolveTenantIdFromPartnerWithIds(partnerId string, tenantIds []string) string {
 	defaultTenantId := db.GetDefaultTenantId()
 	trimmedPartnerId := strings.TrimSpace(partnerId)
 	if util.IsUnknownValue(trimmedPartnerId) || trimmedPartnerId == "" {
@@ -54,7 +87,6 @@ func ResolveTenantIdFromPartner(partnerId string) string {
 	}
 
 	normalizedPartnerId := strings.ToUpper(trimmedPartnerId)
-	tenantIds := getCachedTenantIds()
 
 	// Exact match
 	for _, tid := range tenantIds {
@@ -77,10 +109,15 @@ func ResolveTenantIdFromPartner(partnerId string) string {
 	return strings.ToUpper(defaultTenantId)
 }
 
-// InvalidateTenantCache clears the cached tenant ID list, forcing a fresh DB lookup on next call.
+// InvalidateTenantCache clears both the lightweight in-process cache and the optional application cache,
+// forcing a fresh DB lookup on the next call to ResolveTenantIdFromPartner.
 // Intended for use in integration tests after inserting or deleting tenants.
 func InvalidateTenantCache() {
+	// Clear lightweight in-process cache
+	tenantIdsCache.Store((*tenantIdsCacheEntry)(nil))
+
+	// Also clear optional application cache if enabled
 	cm := db.GetCacheManager()
 	defaultTenantId := db.GetDefaultTenantId()
-	cm.ApplicationCacheSet(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey, nil)
+	cm.ApplicationCacheDelete(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey)
 }
