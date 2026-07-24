@@ -61,16 +61,7 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 	stm.SetTestOnly(true)
 	// Walk(router)
 	defaultTenantId := db.GetDefaultTenantId()
-	originalPartnerTenantMapping := xwhttp.PartnerTenantMapping
-	xwhttp.PartnerTenantMapping = map[string]string{}
-	for partnerId, tenantId := range originalPartnerTenantMapping {
-		xwhttp.PartnerTenantMapping[partnerId] = tenantId
-	}
-	xwhttp.PartnerTenantMapping["COMCAST"] = defaultTenantId
-	defer func() {
-		xwhttp.PartnerTenantMapping = originalPartnerTenantMapping
-	}()
-	partnerTenantId := xwhttp.ResolveTenantIdFromPartner("comcast")
+	partnerTenantId := xwhttp.ResolveTenantIdFromPartner("testPartner")
 	tenantIds := []string{defaultTenantId}
 	if partnerTenantId != "" && partnerTenantId != defaultTenantId {
 		tenantIds = append(tenantIds, partnerTenantId)
@@ -153,7 +144,7 @@ func TestTelemetryTwoHandlerSampleData(t *testing.T) {
 		{"env", "PROD"},
 		{"version", "2.0"},
 		{"model", "CGM4140COM"},
-		{"partnerId", "comcast"},
+		{"partnerId", "testPartner"},
 		{"accountId", "1234567890"},
 		{"firmwareVersion", "CGM4140COM_4.4p1s11_PROD_sey"},
 		{"estbMacAddress", "112233445565"},

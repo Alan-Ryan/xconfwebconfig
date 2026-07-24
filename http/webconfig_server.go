@@ -170,7 +170,6 @@ func NewXconfServer(sc *common.ServerConfig, testOnly bool, ec *ExternalConnecto
 	securityTokenConfig := NewSecurityTokenConfig(conf)
 	loguploadSecurityTokenConfig := NewLogUploaderNonMtlSsrTokenPathConfig(conf)
 	firmwareSecurityTokenConfig := NewFirmwareNonMtlSsrTokenPathConfig(conf)
-	PartnerTenantMapping = LoadPartnerTenantMapping(conf)
 
 	tlsConfig, err := NewTlsConfig(conf)
 	if err != nil && !testOnly {

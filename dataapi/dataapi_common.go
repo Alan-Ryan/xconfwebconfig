@@ -129,9 +129,13 @@ func NormalizeCommonContext(contextMap map[string]string, estbMacKey string, ecm
 			contextMap[ecmMacKey] = normalizedEcmMac
 		}
 	}
-	partnerId := contextMap[common.PARTNER_ID]
-	if partnerId != "" {
+	partnerId := strings.TrimSpace(contextMap[common.PARTNER_ID])
+	if len(partnerId) > 24 {
+		contextMap[common.PARTNER_ID] = "INVALID"
+	} else if partnerId != "" {
 		contextMap[common.PARTNER_ID] = strings.ToUpper(partnerId)
+	} else {
+		contextMap[common.PARTNER_ID] = ""
 	}
 	tenantId := contextMap[common.TENANT_ID]
 	if tenantId != "" {

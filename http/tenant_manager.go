@@ -2,46 +2,122 @@ package http
 
 import (
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/rdkcentral/xconfwebconfig/db"
 	"github.com/rdkcentral/xconfwebconfig/util"
-
-	"github.com/go-akka/configuration"
 )
 
-// PartnerTenantMapping is externally loaded partner-to-tenant mapping.
-// Key is normalized partnerId (uppercase), value is tenantId.
-// Written once at startup; do not mutate after initialization without adding
-// synchronization (direct assignment in tests can cause races under go test ./...).
-var PartnerTenantMapping = map[string]string{}
+const (
+	tenantCacheKey = "TenantIDList"
+	tenantCacheTTL = 5 * time.Minute // Lightweight in-process cache TTL
+)
 
+// tenantIdsCacheEntry holds cached tenant IDs with a timestamp for TTL validation
+type tenantIdsCacheEntry struct {
+	ids       []string
+	timestamp int64 // Unix nanoseconds
+}
+
+// tenantIdsCache is a lightweight in-process cache that works even when optional application cache is disabled.
+// This prevents per-request DB queries on device-facing request paths.
+var tenantIdsCache atomic.Value // stores *tenantIdsCacheEntry or nil
+
+// getCachedTenantIds returns all tenant IDs from cache or DB.
+// Uses a lightweight in-process cache to avoid per-request DB queries when application cache is disabled.
+// Declared as a variable so tests can substitute a lightweight stub.
+var getCachedTenantIds = func() []string {
+	dbClient := db.GetDatabaseClient()
+	if dbClient == nil {
+		return []string{}
+	}
+
+	// Check lightweight in-process cache first (works even if optional application cache is disabled)
+	if entry, ok := tenantIdsCache.Load().(*tenantIdsCacheEntry); ok {
+		if time.Now().UnixNano()-entry.timestamp < int64(tenantCacheTTL) {
+			return entry.ids
+		}
+	}
+
+	// Cache miss or expired; query database
+	tenants := dbClient.GetAllTenants()
+	tenantIds := make([]string, 0, len(tenants))
+	for _, t := range tenants {
+		if t == nil || util.IsBlank(t.ID) {
+			continue
+		}
+		tenantIds = append(tenantIds, strings.ToUpper(t.ID))
+	}
+
+	// Store in lightweight cache
+	tenantIdsCache.Store(&tenantIdsCacheEntry{
+		ids:       tenantIds,
+		timestamp: time.Now().UnixNano(),
+	})
+
+	// Also store in optional application cache if enabled
+	cm := db.GetCacheManager()
+	defaultTenantId := db.GetDefaultTenantId()
+	cm.ApplicationCacheSet(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey, tenantIds)
+
+	return tenantIds
+}
+
+// ResolveTenantIdFromPartner resolves a partnerId to a tenantId using the tenant table.
+//
+// Resolution order:
+//  1. Blank, unknown, or noaccount partnerId → default tenant.
+//  2. Exact match (case-insensitive) against a tenant ID in the tenant table → that tenant.
+//  3. A tenant ID in the table is a prefix of the partnerId → longest matching prefix wins.
+//  4. No match → default tenant.
 func ResolveTenantIdFromPartner(partnerId string) string {
+	tenantIds := getCachedTenantIds()
+	return resolveTenantIdFromPartnerWithIds(partnerId, tenantIds)
+}
+
+// resolveTenantIdFromPartnerWithIds resolves a partnerId to a tenantId using the provided tenant IDs.
+// This is a pure helper function used for both production code and unit testing.
+// It accepts tenantIds as a parameter to avoid global state mutations in tests.
+func resolveTenantIdFromPartnerWithIds(partnerId string, tenantIds []string) string {
 	defaultTenantId := db.GetDefaultTenantId()
 	trimmedPartnerId := strings.TrimSpace(partnerId)
-	// If device sends partnerId=unknown/noaccount or a blank partnerId, use the default tenantId
 	if util.IsUnknownValue(trimmedPartnerId) || trimmedPartnerId == "" {
 		return strings.ToUpper(defaultTenantId)
 	}
 
-	if tenantId, found := PartnerTenantMapping[strings.ToUpper(trimmedPartnerId)]; found {
-		if strings.TrimSpace(tenantId) != "" {
-			return strings.ToUpper(tenantId)
+	normalizedPartnerId := strings.ToUpper(trimmedPartnerId)
+
+	// Exact match
+	for _, tid := range tenantIds {
+		if tid == normalizedPartnerId {
+			return tid
 		}
 	}
 
-	return strings.ToUpper(trimmedPartnerId)
+	// Longest-prefix match
+	bestMatch := ""
+	for _, tid := range tenantIds {
+		if strings.HasPrefix(normalizedPartnerId, tid) && len(tid) > len(bestMatch) {
+			bestMatch = tid
+		}
+	}
+	if bestMatch != "" {
+		return bestMatch
+	}
+
+	return strings.ToUpper(defaultTenantId)
 }
 
-func LoadPartnerTenantMapping(conf *configuration.Config) map[string]string {
-	partnerTenantMapping := map[string]string{}
-	for partnerId, tenantId := range util.CreateConfigMapStringString(conf, "xconfwebconfig.xconf.partner_tenant_mapping") {
-		trimmedPartnerId := strings.TrimSpace(partnerId)
-		trimmedTenantId := strings.TrimSpace(tenantId)
-		if trimmedPartnerId == "" || trimmedTenantId == "" {
-			continue
-		}
-		partnerTenantMapping[strings.ToUpper(trimmedPartnerId)] = strings.ToUpper(trimmedTenantId)
-	}
+// InvalidateTenantCache clears both the lightweight in-process cache and the optional application cache,
+// forcing a fresh DB lookup on the next call to ResolveTenantIdFromPartner.
+// Intended for use in integration tests after inserting or deleting tenants.
+func InvalidateTenantCache() {
+	// Clear lightweight in-process cache
+	tenantIdsCache.Store((*tenantIdsCacheEntry)(nil))
 
-	return partnerTenantMapping
+	// Also clear optional application cache if enabled
+	cm := db.GetCacheManager()
+	defaultTenantId := db.GetDefaultTenantId()
+	cm.ApplicationCacheDelete(defaultTenantId, db.TABLE_TENANTS, tenantCacheKey)
 }
