@@ -134,7 +134,8 @@ func NormalizeCommonContext(contextMap map[string]string, estbMacKey string, ecm
 		contextMap[common.PARTNER_ID] = "INVALID"
 	} else if partnerId != "" {
 		contextMap[common.PARTNER_ID] = strings.ToUpper(partnerId)
-	} else {
+	} else if _, exists := contextMap[common.PARTNER_ID]; exists {
+		// Only clear the value if the key was already present in the map
 		contextMap[common.PARTNER_ID] = ""
 	}
 	tenantId := contextMap[common.TENANT_ID]
