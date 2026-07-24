@@ -262,7 +262,13 @@ func GetCacheManager() *CacheManager {
 		// Initialize cache for each tenant
 		tenants := cc.GetAllTenants()
 		if len(tenants) == 0 {
-			panic("no tenants found in the database")
+			tenant, err := EnsureDefaultTenantExists()
+			if tenant == nil || err != nil {
+				panic(fmt.Sprintf("Failed to ensure default tenant exists: %v", err))
+			} else {
+				log.Debugf("Default tenant already exists or created successfully: %v", tenant.ID)
+			}
+			tenants = append(tenants, tenant)
 		}
 		for _, tenant := range tenants {
 			cacheManager.InitTenantCache(tenant.ID)
