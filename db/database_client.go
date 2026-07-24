@@ -148,6 +148,7 @@ type DatabaseClient interface {
 	GetLockInfo(tenantId string, lockName string) (map[string]any, error)
 
 	// Tenants
+	GetTenant(tenantId string) (*Tenant, error)
 	GetAllTenants() []*Tenant
 	SetTenant(tenant *Tenant) error
 	DeleteTenant(tenantId string) error

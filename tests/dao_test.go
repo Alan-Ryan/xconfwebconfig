@@ -217,19 +217,16 @@ func generateTestEnvironments(num int) ([]string, error) {
 func truncateTable(tableName string) error {
 	dbClient := db.GetDatabaseClient()
 	cassandraClient, ok := dbClient.(*db.CassandraClient)
-	if ok {
-		tableInfo, err := db.GetTableInfo(tableName)
-		if err != nil {
-			return err
-		}
-		if tableInfo.Unsharded {
-			if tableName == db.TABLE_LOGS {
-				tableName = cassandraClient.GetTableNameFromLogKeyspace(tableName)
-			}
-			return cassandraClient.Query(fmt.Sprintf(`TRUNCATE table %s`, tableName)).Exec()
-		} else {
-			return cassandraClient.DeleteAllXconfData(db.GetDefaultTenantId(), tableName)
-		}
+	if !ok {
+		return nil
 	}
-	return nil
+
+	tableInfo, err := db.GetTableInfo(tableName)
+	if err != nil || tableInfo.Unsharded {
+		if tableName == db.TABLE_LOGS {
+			tableName = cassandraClient.GetTableNameFromLogKeyspace(tableName)
+		}
+		return cassandraClient.Query(fmt.Sprintf(`TRUNCATE table %s`, tableName)).Exec()
+	}
+	return cassandraClient.DeleteAllXconfData(db.GetDefaultTenantId(), tableName)
 }

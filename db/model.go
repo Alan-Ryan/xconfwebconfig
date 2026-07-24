@@ -19,10 +19,13 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/gocql/gocql"
+	"github.com/rdkcentral/xconfwebconfig/util"
+	log "github.com/sirupsen/logrus"
 )
 
 // OperationType enum
@@ -81,4 +84,49 @@ func (obj *Tenant) Validate() error {
 	}
 
 	return errors.New("Id is invalid")
+}
+
+func NewTenant(id string, name string) *Tenant {
+	if id != "" {
+		id = strings.ToUpper(strings.TrimSpace(id))
+	}
+	if util.IsBlank(name) {
+		name = id
+	}
+
+	return &Tenant{
+		ID:   id,
+		Name: strings.TrimSpace(name),
+	}
+}
+
+func CreateTenant(id string, name string) (*Tenant, error) {
+	// Attempt to retrieve the tenant from the database, if it does not exist, create a new tenant
+	tenant, err := GetDatabaseClient().GetTenant(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve tenant %s: %v", id, err)
+	}
+	if tenant == nil {
+		tenant = NewTenant(id, name)
+		tenant.Updated = util.GetTimestamp()
+		if err := tenant.Validate(); err != nil {
+			return nil, err
+		}
+		log.WithFields(log.Fields{"tenantId": id}).Infof("Creating new tenant...")
+		if err := GetDatabaseClient().SetTenant(tenant); err != nil {
+			return nil, fmt.Errorf("failed to create tenant %s: %v", tenant.ID, err)
+		}
+	}
+
+	if strings.EqualFold(tenant.ID, id) == false {
+		return nil, fmt.Errorf("tenant ID mismatch: expected %s, got %s", id, tenant.ID)
+	}
+
+	return tenant, nil
+}
+
+// EnsureDefaultTenantExists ensures that the default tenant exists, creating it if necessary
+func EnsureDefaultTenantExists() (*Tenant, error) {
+	tenantId := GetDefaultTenantId()
+	return CreateTenant(tenantId, tenantId)
 }

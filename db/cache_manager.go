@@ -240,8 +240,10 @@ func GetCacheManager() *CacheManager {
 			cacheManager.settings.keysetChunkSizeForMassCacheLoad = Conf.GetInt32("xconfwebconfig.xconf.cache_keysetChunkSizeForMassCacheLoad", 500)
 			cacheManager.settings.cloneDataEnabled = Conf.GetBoolean("xconfwebconfig.xconf.cache_clone_data_enabled", false)
 			cacheManager.settings.applicationCacheEnabled = Conf.GetBoolean("xconfwebconfig.xconf.application_cache_enabled", false)
-			cacheManager.settings.groupServiceExpireAfterAccess = Conf.GetInt64(fmt.Sprintf("xconfwebconfig.%v.cache_expire_after_access_in_mins", Conf.GetString("xconfwebconfig.xconf.group_service_name")))
-			cacheManager.settings.groupServiceRefreshAfterWrite = Conf.GetInt64(fmt.Sprintf("xconfwebconfig.%v.cache_refresh_after_write_in_mins", Conf.GetString("xconfwebconfig.xconf.group_service_name")))
+
+			groupServiceName := Conf.GetString("xconfwebconfig.xconf.group_service_name")
+			cacheManager.settings.groupServiceExpireAfterAccess = Conf.GetInt64(fmt.Sprintf("xconfwebconfig.%v.cache_expire_after_access_in_mins", groupServiceName))
+			cacheManager.settings.groupServiceRefreshAfterWrite = Conf.GetInt64(fmt.Sprintf("xconfwebconfig.%v.cache_refresh_after_write_in_mins", groupServiceName))
 
 			dualWriteEnabled = Conf.GetBoolean("xconfwebconfig.xconf.dual_write_enabled", true)
 			defaultTenantId = strings.ToUpper(Conf.GetString("xconfwebconfig.xconf.default_tenant_id"))
@@ -257,63 +259,13 @@ func GetCacheManager() *CacheManager {
 			return
 		}
 
+		// Initialize cache for each tenant
 		tenants := cc.GetAllTenants()
 		if len(tenants) == 0 {
-			log.Warn("No tenants found in database, initializing cache manager with default tenant only")
-			if err := cc.SetTenant(&Tenant{
-				ID:      defaultTenantId,
-				Name:    defaultTenantId,
-				Updated: util.GetTimestamp(time.Now()),
-			}); err != nil {
-				panic(fmt.Sprintf("Failed to save default tenant: %v", err))
-			}
-			tenants = cc.GetAllTenants()
+			panic("no tenants found in the database")
 		}
-
 		for _, tenant := range tenants {
-			tenantId := tenant.ID
-
-			// Initialize cache for each table for the tenant
-			tableCaches := make(TableCacheInfo)
-			cacheManager.tableCaches.Store(tenantId, tableCaches)
-
-			for tableName, tableInfo := range tableConfig {
-				if !tableInfo.Cached {
-					continue // No caching for this table
-				}
-
-				// Generate a load function for the table
-				loadFn := generateLoadFunction(tenantId, tableName)
-
-				// Create a LoadingCache for each table
-				var loadingCache cache.LoadingCache
-				if cacheManager.settings.reloadCacheEntries {
-					freshAfterWrite := getDuration(
-						cacheManager.settings.reloadCacheEntriesTimeout, cacheManager.settings.reloadCacheEntriesTimeUnit)
-					loadingCache = cache.NewLoadingCache(
-						loadFn,
-						cache.WithMaximumSize(0), // Unlimited number of entries in the cache.
-						cache.WithRefreshAfterWrite(freshAfterWrite), // Expire entries after specified duration since last created.
-					)
-				} else {
-					loadingCache = cache.NewLoadingCache(
-						loadFn,
-						cache.WithMaximumSize(0), // Unlimited number of entries in the cache.
-					)
-				}
-				tableCaches[tableName] = CacheInfo{tenantId: tenantId, cache: loadingCache}
-			}
-
-			// Initialize application cache for each tenant
-			cacheManager.applicationCaches.Store(tenantId, cache.New(cache.WithMaximumSize(0)))
-
-			// Initialize group service feature tags cache for each tenant
-			cacheManager.groupServiceFeatureCaches.Store(tenantId, cache.NewLoadingCache(
-				GetGrpCacheLoadFunc(),
-				cache.WithMaximumSize(100),
-				cache.WithExpireAfterAccess(time.Duration(cacheManager.settings.groupServiceExpireAfterAccess)*time.Minute),
-				cache.WithRefreshAfterWrite(time.Duration(cacheManager.settings.groupServiceRefreshAfterWrite)*time.Minute),
-			))
+			cacheManager.InitTenantCache(tenant.ID)
 		}
 
 		if !cc.IsTestOnly() {
@@ -332,6 +284,65 @@ func GetCacheManager() *CacheManager {
 	})
 
 	return &cacheManager
+}
+
+// InitCache initializes the cache for a specific tenant
+func (cm *CacheManager) InitTenantCache(id string) {
+	if _, ok := cm.tableCaches.Load(id); ok {
+		if _, ok := cm.applicationCaches.Load(id); ok {
+			log.WithFields(log.Fields{"tenantId": id}).Debugf("Cache for tenant already initialized")
+			return
+		}
+	}
+
+	// Initialize cache for each table for the tenant
+	tableCaches := make(TableCacheInfo)
+	cm.tableCaches.Store(id, tableCaches)
+
+	for tableName, tableInfo := range tableConfig {
+		if !tableInfo.Cached {
+			continue // No caching for this table
+		}
+
+		// Generate a load function for the table
+		loadFn := generateLoadFunction(id, tableName)
+
+		// Create a LoadingCache for each table
+		var loadingCache cache.LoadingCache
+		if cm.settings.reloadCacheEntries {
+			freshAfterWrite := getDuration(
+				cm.settings.reloadCacheEntriesTimeout, cm.settings.reloadCacheEntriesTimeUnit)
+			loadingCache = cache.NewLoadingCache(
+				loadFn,
+				cache.WithMaximumSize(0), // Unlimited number of entries in the cache.
+				cache.WithRefreshAfterWrite(freshAfterWrite), // Expire entries after specified duration since last created.
+			)
+		} else {
+			loadingCache = cache.NewLoadingCache(
+				loadFn,
+				cache.WithMaximumSize(0), // Unlimited number of entries in the cache.
+			)
+		}
+		tableCaches[tableName] = CacheInfo{tenantId: id, cache: loadingCache}
+	}
+
+	// Initialize application cache for each tenant
+	cm.applicationCaches.Store(id, cache.New(cache.WithMaximumSize(0)))
+
+	// Initialize group service feature tags cache for each tenant
+	cm.groupServiceFeatureCaches.Store(id, cache.NewLoadingCache(
+		GetGrpCacheLoadFunc(),
+		cache.WithMaximumSize(100),
+		cache.WithExpireAfterAccess(time.Duration(cm.settings.groupServiceExpireAfterAccess)*time.Minute),
+		cache.WithRefreshAfterWrite(time.Duration(cm.settings.groupServiceRefreshAfterWrite)*time.Minute),
+	))
+}
+
+// DeleteTenantCache removes all cache entries associated with the specified tenant
+func (cm *CacheManager) DeleteTenantCache(tenantId string) {
+	cm.tableCaches.Delete(tenantId)
+	cm.applicationCaches.Delete(tenantId)
+	cm.groupServiceFeatureCaches.Delete(tenantId)
 }
 
 // SetCacheChangeNotifier sets a notifier to be called on cache changed events

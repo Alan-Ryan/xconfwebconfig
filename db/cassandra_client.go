@@ -1072,6 +1072,28 @@ func (c *CassandraClient) ExecuteBatch(batch BatchOperation) error {
 	return c.Session.ExecuteBatch(batchWrapper.Batch)
 }
 
+func (c *CassandraClient) GetTenant(tenantId string) (*Tenant, error) {
+	if util.IsBlank(tenantId) {
+		return nil, fmt.Errorf("CassandraClient.GetTenant: tenantId is empty")
+	}
+
+	tenant := Tenant{}
+	stmt := fmt.Sprintf(`SELECT id, name, updated FROM %s WHERE id = ? LIMIT 1`, TABLE_TENANTS)
+
+	c.ConcurrentQueries <- true
+	defer func() { <-c.ConcurrentQueries }()
+
+	err := c.Query(stmt, tenantId).Scan(&tenant.ID, &tenant.Name, &tenant.Updated)
+	if err != nil {
+		if c.IsDbNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &tenant, nil
+}
+
 func (c *CassandraClient) GetAllTenants() []*Tenant {
 	var tenants []*Tenant
 	stmt := fmt.Sprintf(`SELECT id, name, updated FROM %s`, TABLE_TENANTS)

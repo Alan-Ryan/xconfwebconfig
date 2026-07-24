@@ -153,7 +153,6 @@ var tableMappings = []tableMapping{
 	{"XconfTelemetryTwoChange", db.TABLE_TELEMETRY_TWO_CHANGES, kindSimple},
 	{"XconfApprovedTelemetryTwoChange", db.TABLE_TELEMETRY_APPROVED_TWO_CHANGES, kindSimple},
 	{"AppSettings", db.TABLE_APP_SETTINGS, kindSimple},
-	{"ApplicationTypes", db.TABLE_APPLICATION_TYPES, kindSimple},
 
 	// Two-key table --------------------------------------------------------------
 	// column1 is renamed as key2, the second clustering column in the new schema.

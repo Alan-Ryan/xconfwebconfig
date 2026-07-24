@@ -337,6 +337,14 @@ func XconfSetup(server *xhttp.XconfServer, r *mux.Router) {
 	db.ConfigInjection(server.ServerConfig.Config)
 	db.SetGrpCacheLoadFunc(LoadGroupServiceFeatureTags)
 	RegisterTables()
+
+	// Ensure default tenant exists
+	if tenant, err := db.EnsureDefaultTenantExists(); err != nil {
+		panic(fmt.Sprintf("Failed to ensure default tenant exists: %v", err))
+	} else {
+		log.Debugf("Default tenant already exists or created successfully: %v", tenant.ID)
+	}
+
 	db.GetCacheManager() // Initialize cache manager
 
 	RouteXconfDataserviceApis(r, server)
