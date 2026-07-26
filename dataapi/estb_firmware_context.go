@@ -269,7 +269,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 			log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId present,fetching AccntPrds directly from Grp Svc")
 			accountData, err = ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
 			} else {
 				if partner, ok := accountData["Partner"]; ok {
 					contextMap[common.PARTNER_ID] = partner
@@ -300,7 +300,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 						xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 						log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId,AccntProduct successfully retrieved from Grp Svc")
 					} else {
-						log.WithFields(fields).Error("AddEstbFirmwareContext: Failed to unmarshal only AccountProducts")
+						log.WithFields(fields).Errorf("AddEstbFirmwareContext: Failed to unmarshal only AccountProducts, err=%v", err)
 					}
 				}
 				if Ws.Config.GetBoolean("xconfwebconfig.xconf.enable_fw_penetration_metrics", false) {
@@ -317,7 +317,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				}
 			}
 		} else {
-			log.WithFields(fields).Errorf("Error getting accountId info from Grp Svc")
+			log.WithFields(fields).Errorf("Error getting accountId info from Grp Svc, err=%v", err)
 			xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		}
 	}

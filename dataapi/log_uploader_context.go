@@ -97,7 +97,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 			log.WithFields(fields).Debug("AddLogUploaderContext AcntId already present,fetching AccntPrds directly from Grp Svc")
 			accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
 			} else {
 				if partner, ok := accountData["Partner"]; ok && partner != "" {
 					contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -131,12 +131,12 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 						xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 						log.WithFields(fields).Debug("AddLogUploaderContext AcntId,AccntProduct successfully retrieved from Grp Svc")
 					} else {
-						log.WithFields(fields).Error("AddLogUploaderContext: Failed to unmarshal only AccountProducts")
+						log.WithFields(fields).Errorf("AddLogUploaderContext: Failed to unmarshal only AccountProducts, err=%v", err)
 					}
 				}
 			}
 		} else {
-			log.WithFields(fields).Error("Error getting accountId information from Grp Service")
+			log.WithFields(fields).Errorf("Error getting accountId information from Grp Service, err=%v", err)
 			xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		}
 	}

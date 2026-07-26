@@ -131,7 +131,7 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 	xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(snURL, fields)
 
 	if err != nil {
-		log.WithFields(fields).Errorf("AddContextForPods: Error getting accountId info from Grp Svc")
+		log.WithFields(fields).Errorf("AddContextForPods: Error getting accountId info from Grp Svc, err=%v", err)
 		xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		return nil, nil
 	}
@@ -145,7 +145,7 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 
 		accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 		if err != nil {
-			log.WithFields(log.Fields{"error": err}).Error("AddContextForPods: Error getting accountProducts info from Grp Svc")
+			log.WithFields(fields).Errorf("AddContextForPods: Error getting accountProducts info from Grp Svc, err=%v", err)
 			return nil, nil
 		}
 
@@ -178,7 +178,7 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 				xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 				log.WithFields(fields).Debug("AddContextForPods AcntId,AccntProduct Successfully retrieved from Grp Svc")
 			} else {
-				log.WithFields(fields).Error("AddContextForPods: Failed to unmarshal AccountProducts")
+				log.WithFields(fields).Errorf("AddContextForPods: Failed to unmarshal AccountProducts, err=%v", err)
 			}
 		}
 
@@ -370,7 +370,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 			}
 
 			if err != nil {
-				log.WithFields(fields).Error("AddFeatureControlContextFromAccountService Error getting accountId info from Grp Svc")
+				log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService Error getting accountId info from Grp Svc, err=%v", err)
 				xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 			} else {
 				if xAccountId != nil && xAccountId.GetAccountId() != "" {
@@ -383,7 +383,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 
 				accountProducts, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 				if err != nil {
-					log.WithFields(fields).Error("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc")
+					log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc, err=%v", err)
 				} else {
 					if partner, ok := accountProducts["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -420,7 +420,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 							xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 							log.WithFields(fields).Debug("AddFeatureControlContextFromAccountService AcntId,AccntProduct successfully retrieved from Grp Svc")
 						} else {
-							log.WithFields(fields).Error("AddFeatureControlContextFromAccountService: Failed to unmarshal only AccountProducts")
+							log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService: Failed to unmarshal only AccountProducts, err=%v", err)
 						}
 					}
 					return td
@@ -537,7 +537,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 			log.WithFields(fields).Debugf("AddFeatureControlContext AcntId present,fetching AccntPrds directly from Grp Svc")
 			accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
 			} else {
 				if partner, ok := accountData["Partner"]; ok && partner != "" {
 					contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -574,7 +574,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 						xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 						log.WithFields(fields).Debug("AddFeatureControlContext AcntId,AccntProduct successfully retrieved from Grp Svc")
 					} else {
-						log.WithFields(fields).Error("AddFeatureControlContext: Failed to unmarshal only AccountProducts")
+						log.WithFields(fields).Errorf("AddFeatureControlContext: Failed to unmarshal only AccountProducts, err=%v", err)
 					}
 				}
 			}
