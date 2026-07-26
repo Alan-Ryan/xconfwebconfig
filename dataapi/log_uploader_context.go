@@ -97,7 +97,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 			log.WithFields(fields).Debug("AddLogUploaderContext AcntId already present,fetching AccntPrds directly from Grp Svc")
 			accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(log.Fields{"error": err}).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
 			} else {
 				if partner, ok := accountData["Partner"]; ok && partner != "" {
 					contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -136,7 +136,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 				}
 			}
 		} else {
-			log.WithFields(log.Fields{"error": err}).Error("Error getting accountId information from Grp Service")
+			log.WithFields(fields).Error("Error getting accountId information from Grp Service")
 			xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		}
 	}
