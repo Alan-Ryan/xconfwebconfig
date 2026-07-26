@@ -131,7 +131,7 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 	xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(snURL, fields)
 
 	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Errorf("AddContextForPods: Error getting accountId info from Grp Svc")
+		log.WithFields(fields).Errorf("AddContextForPods: Error getting accountId info from Grp Svc")
 		xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		return nil, nil
 	}
@@ -370,7 +370,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 			}
 
 			if err != nil {
-				log.WithFields(log.Fields{"error": err}).Error("AddFeatureControlContextFromAccountService Error getting accountId info from Grp Svc")
+				log.WithFields(fields).Error("AddFeatureControlContextFromAccountService Error getting accountId info from Grp Svc")
 				xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 			} else {
 				if xAccountId != nil && xAccountId.GetAccountId() != "" {
@@ -383,7 +383,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 
 				accountProducts, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 				if err != nil {
-					log.WithFields(log.Fields{"error": err}).Error("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc")
+					log.WithFields(fields).Error("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc")
 				} else {
 					if partner, ok := accountProducts["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -537,7 +537,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 			log.WithFields(fields).Debugf("AddFeatureControlContext AcntId present,fetching AccntPrds directly from Grp Svc")
 			accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(log.Fields{"error": err}).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
 			} else {
 				if partner, ok := accountData["Partner"]; ok && partner != "" {
 					contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
