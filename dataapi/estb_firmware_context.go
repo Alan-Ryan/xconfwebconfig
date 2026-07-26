@@ -269,7 +269,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 			log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId present,fetching AccntPrds directly from Grp Svc")
 			accountData, err = ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 			if err != nil {
-				log.WithFields(log.Fields{"error": err}).Error("Error getting accountProducts info from Grp Svc")
+				log.WithFields(fields).Error("Error getting accountProducts info from Grp Svc")
 			} else {
 				if partner, ok := accountData["Partner"]; ok {
 					contextMap[common.PARTNER_ID] = partner
@@ -317,7 +317,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				}
 			}
 		} else {
-			log.WithFields(log.Fields{"error": err}).Errorf("Error getting accountId info from Grp Svc")
+			log.WithFields(fields).Errorf("Error getting accountId info from Grp Svc")
 			xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		}
 	}
