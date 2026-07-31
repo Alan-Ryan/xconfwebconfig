@@ -212,7 +212,7 @@ func AddContextForPods(ws *xhttp.XconfServer, contextMap map[string]string, satT
 	tfields := common.FilterLogFields(fields)
 	if Xc.EnableXacGroupService {
 		//This works only for the models listed in AccountTypeModel
-		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToLower(contextMap[common.MODEL])) {
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
 			podData, td = getAccountInfoFromGrpService(ws, contextMap, fields)
 		}
 	}
@@ -339,7 +339,7 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 	}
 	var err error
 	if Xc.EnableXacGroupService {
-		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToLower(contextMap[common.MODEL])) {
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
 			var xAccountId *conversion.XBOAccount
 			var err error
 			if util.IsValidMacAddress(contextMap[common.ESTB_MAC_ADDRESS]) {
@@ -513,7 +513,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 	//This code logic is to directly fetch accountProducts from Group Service since the accountId already exists in the device request
 	//This code is to enable xac grp service and only for AccountType based models or for all models when list is empty
 	if Xc.EnableXacGroupService {
-		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToLower(contextMap[common.MODEL])) {
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
 			if contextMap[common.ACCOUNT_ID] != "" && !util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
 				log.WithFields(fields).Debugf("AddFeatureControlContext AcntId present,fetching AccntPrds directly from Grp Svc")
 				accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
