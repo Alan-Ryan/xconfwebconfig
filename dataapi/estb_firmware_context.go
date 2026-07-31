@@ -251,8 +251,8 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				}
 
 				if xAccountId == nil && err != nil {
-					if util.IsValidMacAddress(contextMap[common.ECM_MAC_ADDRESS]) {
-						macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC_ADDRESS])
+					if util.IsValidMacAddress(contextMap[common.ECM_MAC]) {
+						macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC])
 						xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
 					}
 				}
@@ -267,6 +267,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				log.WithFields(fields).Debugf("AddEstbFirmwareContext Successfully fetched AcntId and AcntType from Grp Svc")
 			}
 
+			//this case gets executed when accountId comes in the device request,so we directly fetch AccntProducts
 			if contextMap[common.ACCOUNT_ID] != "" && !util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
 				log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId present,fetching AccntPrds directly from Grp Svc")
 				accountData, err = ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
