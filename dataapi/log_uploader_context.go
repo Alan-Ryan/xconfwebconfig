@@ -78,7 +78,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 					xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
 				}
 
-				if xAccountId == nil && err != nil {
+				if xAccountId == nil {
 					if util.IsValidMacAddress(contextMap[common.ECM_MAC_ADDRESS]) {
 						macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC_ADDRESS])
 						xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
@@ -106,11 +106,11 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 
 					contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
 
-					if countryCode, ok := accountData["CountryCode"]; ok {
+					if countryCode, ok := accountData["CountryCode"]; ok && countryCode != "" {
 						contextMap[common.COUNTRY_CODE] = countryCode
 					}
 
-					if TimeZone, ok := accountData["TimeZone"]; ok {
+					if TimeZone, ok := accountData["TimeZone"]; ok && TimeZone != "" {
 						contextMap[common.TIME_ZONE] = TimeZone
 					}
 
@@ -118,7 +118,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 						contextMap[common.ACCOUNT_TYPE] = accountType
 					}
 
-					if accountState, ok := accountData["State"]; ok {
+					if accountState, ok := accountData["State"]; ok && accountState != "" {
 						contextMap[common.ACCOUNT_STATE] = accountState
 					}
 
