@@ -70,7 +70,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 	satToken := localToken.Token
 
 	if Xc.EnableXacGroupService {
-		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToLower(contextMap[common.MODEL])) {
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
 			if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || contextMap[common.ACCOUNT_ID] == "" || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
 				xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 				if util.IsValidMacAddress(contextMap[common.ESTB_MAC_ADDRESS]) {

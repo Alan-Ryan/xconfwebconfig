@@ -242,7 +242,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 
 	//This code is to enable xac grp service and only for AccountType based models or for all models when list is empty
 	if Xc.EnableXacGroupService {
-		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToLower(contextMap[common.MODEL])) {
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
 			if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || contextMap[common.ACCOUNT_ID] == "" || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
 				xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 				if util.IsValidMacAddress(contextMap[common.ESTB_MAC]) {
