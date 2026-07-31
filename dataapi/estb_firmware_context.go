@@ -253,7 +253,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 					xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
 				}
 
-				if xAccountId == nil && err != nil {
+				if xAccountId == nil {
 					if util.IsValidMacAddress(contextMap[common.ECM_MAC]) {
 						macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC])
 						xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
@@ -277,14 +277,14 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				if err != nil {
 					log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
 				} else {
-					if partner, ok := accountData["Partner"]; ok {
+					if partner, ok := accountData["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
 					}
-					if countryCode, ok := accountData["CountryCode"]; ok {
+					if countryCode, ok := accountData["CountryCode"]; ok && countryCode != "" {
 						contextMap[common.COUNTRY_CODE] = countryCode
 					}
 
-					if TimeZone, ok := accountData["TimeZone"]; ok {
+					if TimeZone, ok := accountData["TimeZone"]; ok && TimeZone != "" {
 						contextMap[common.TIME_ZONE] = TimeZone
 					}
 
@@ -292,7 +292,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 						contextMap[common.ACCOUNT_TYPE] = accountType
 					}
 
-					if accountState, ok := accountData["State"]; ok {
+					if accountState, ok := accountData["State"]; ok && accountState != "" {
 						contextMap[common.ACCOUNT_STATE] = accountState
 					}
 
