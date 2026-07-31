@@ -92,6 +92,7 @@ type XconfConfigs struct {
 	EnableTaggingComparison      bool
 	EnablePartnerRouting         bool
 	PartnerSet                   util.Set
+	AccountTypeModelSet          util.Set
 }
 
 // Function to register the table name and the corresponding model/struct constructor
@@ -294,6 +295,14 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 			partnerSet.Add(strings.ToUpper(strings.TrimSpace(partner)))
 		}
 	}
+	accountTypeModelSet := util.NewSet()
+	accountTypeModelList := conf.GetString("xconfwebconfig.xconf.accounttype_model_list")
+	if !util.IsBlank(accountTypeModelList) {
+		accountTypeModels := strings.Split(accountTypeModelList, ",")
+		for _, model := range accountTypeModels {
+			accountTypeModelSet.Add(strings.ToUpper(strings.TrimSpace(model)))
+		}
+	}
 
 	// Partner ID regex config
 	const defaultValidPartnerIdRegex = `^[A-Za-z0-9_.\-,:;]{3,32}$`
@@ -352,6 +361,7 @@ func GetXconfConfigs(conf *conf.Config) *XconfConfigs {
 		EnableTaggingComparison:      conf.GetBoolean("xconfwebconfig.xconf.enable_tagging_comparison"),
 		EnablePartnerRouting:         conf.GetBoolean("xconfwebconfig.partner_services.enabled", false),
 		PartnerSet:                   partnerSet,
+		AccountTypeModelSet:          accountTypeModelSet,
 	}
 	return xc
 }
