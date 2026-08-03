@@ -386,9 +386,6 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 					accountType := xAccountId.GetAccountType()
 					contextMap[common.ACCOUNT_ID] = accountId
 					contextMap[common.ACCOUNT_TYPE] = accountType
-					td = &AccountServiceData{
-						AccountId: contextMap[common.ACCOUNT_ID],
-					}
 					log.WithFields(fields).Debugf("AddFeatureControlContextFromAccountService Successfully fetched AcntId and AcntType from Grp Svc")
 				}
 
@@ -397,7 +394,10 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 					if err != nil {
 						log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc, err=%v", err)
 					} else {
-						//partner fetch
+						td = &AccountServiceData{
+							AccountId: contextMap[common.ACCOUNT_ID],
+						}
+
 						if partner, ok := accountData["Partner"]; ok && partner != "" {
 							td.PartnerId = partner //adding PartnerId to AccountServiceData
 							contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -411,14 +411,15 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 
 						if TimeZone, ok := accountData["TimeZone"]; ok && TimeZone != "" {
 							contextMap[common.TIME_ZONE] = TimeZone
+							td.TimeZone = TimeZone
 						}
 
 						if accountType, ok := accountData["Type"]; ok && accountType != "" {
 							contextMap[common.ACCOUNT_TYPE] = accountType
 						}
 
-						if State, ok := accountData["State"]; ok {
-							contextMap[common.ACCOUNT_STATE] = State
+						if accountState, ok := accountData["State"]; ok && accountState != "" {
+							contextMap[common.ACCOUNT_STATE] = accountState
 						}
 
 						if raw, ok := accountData["AccountProducts"]; ok && raw != "" {
