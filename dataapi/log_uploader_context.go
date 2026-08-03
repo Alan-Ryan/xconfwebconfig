@@ -98,7 +98,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 				log.WithFields(fields).Debug("AddLogUploaderContext AcntId already present,fetching AccntPrds directly from Grp Svc")
 				accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 				if err != nil {
-					log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
+					log.WithFields(fields).Errorf("AddLogUploaderContext: Error getting accountProducts info from Grp Svc, err=%v", err)
 				} else {
 					if partner, ok := accountData["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -137,14 +137,14 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 					}
 				}
 			} else {
-				log.WithFields(fields).Errorf("Error getting accountId information from Grp Service, err=%v", err)
+				log.WithFields(fields).Errorf("AddLogUploaderContext: Error getting accountId information from Grp Service, err=%v", err)
 				xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 			}
 		}
 	}
 
 	if Xc.EnableAccountService && util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
-		log.WithFields(fields).Debug("Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Svc due to Flag Disabled or err")
+		log.WithFields(fields).Debug("AddLogUploaderContext: Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Svc due to Flag Disabled or err")
 		xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		if util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
 			partnerId := GetPartnerFromAccountServiceByHostMac(ws, contextMap[common.ESTB_MAC_ADDRESS], satToken, fields)
