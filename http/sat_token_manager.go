@@ -108,21 +108,30 @@ func (s *SatTokenMgr) SetTestOnly(testOnly bool) {
 // GetLocalSatToken - get local sattoken
 func GetLocalSatToken(fields log.Fields) (*SatToken, error) {
 	if stm.TestOnly() {
+		stm.mu.RLock()
+		defer stm.mu.RUnlock()
 		return stm.SatToken, nil
 	}
 	fields = common.FilterLogFields(fields)
 
+	stm.mu.RLock()
+	token := stm.SatToken
+	needsRefresh := token == nil || token.Token == "" || token.IsTokenExpired(fields)
+	stm.mu.RUnlock()
+
 	// check for if we have token or not as well as token is expired or not
-	if stm.Token == "" || stm.IsTokenExpired(fields) {
+	if needsRefresh {
 		log.WithFields(fields).Debug("no local token found or expired, getting token from SatService")
 		err := SetLocalSatToken(fields)
 		if err != nil {
 			return nil, err
 		}
+		stm.mu.RLock()
+		defer stm.mu.RUnlock()
 		return stm.SatToken, nil
 	}
 	log.WithFields(fields).Debug("used local token")
-	return stm.SatToken, nil
+	return token, nil
 }
 
 func GetLocalPartnerSatToken(fields log.Fields, partner string) (*SatToken, error) {
@@ -171,6 +180,8 @@ func SetLocalSatToken(fields log.Fields) error {
 	}
 	name := Ws.SatServiceConnector.SatServiceName()
 	keyname := fmt.Sprintf("sat_token_%s", name)
+	stm.mu.Lock()
+	defer stm.mu.Unlock()
 	stm.SatToken = &SatToken{
 		Token:    cb2Token.AccessToken,
 		Source:   name,

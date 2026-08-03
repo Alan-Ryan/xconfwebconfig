@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -104,6 +105,20 @@ type RfcPenetrationMetrics struct {
 
 var emptyValueSet = util.NewSet("", "unknown", "noaccount", "novalue", "nomatch", "na", "nomodel")
 
+func normalizePenetrationDimension(v string) string {
+	v = strings.ToUpper(strings.TrimSpace(v))
+	if isEmptyString(v) {
+		return "null"
+	}
+	if len(v) > 64 {
+		return "others"
+	}
+	if matched, _ := regexp.MatchString(`^[A-Z0-9._: -]+$`, v); !matched {
+		return "others"
+	}
+	return v
+}
+
 func (c *CassandraClient) SetFwPenetrationMetrics(pMetrics *FwPenetrationMetrics) error {
 	// build the statement and avoid unnecessary fields/columns
 
@@ -145,11 +160,11 @@ func (c *CassandraClient) SetFwPenetrationMetrics(pMetrics *FwPenetrationMetrics
 	// XPC-18738 special handling for partner and model. We allow replacement but do not clean up if not found in input
 	if !isEmptyString(pMetrics.Partner) {
 		columns = append(columns, PartnerColumnValue)
-		values = append(values, pMetrics.Partner)
+		values = append(values, normalizePenetrationDimension(pMetrics.Partner))
 	}
 	if !isEmptyString(pMetrics.Model) {
 		columns = append(columns, ModelColumnValue)
-		values = append(values, pMetrics.Model)
+		values = append(values, normalizePenetrationDimension(pMetrics.Model))
 	}
 
 	if !isEmptyString(pMetrics.ClientCertExpiry) {
@@ -230,11 +245,11 @@ func (c *CassandraClient) SetRfcPenetrationMetrics(pMetrics *RfcPenetrationMetri
 	// only write following values when they're non-empty for rfc penetratioin metrics
 	if !isEmptyString(pMetrics.Partner) {
 		columns = append(columns, PartnerColumnValue)
-		values = append(values, pMetrics.Partner)
+		values = append(values, normalizePenetrationDimension(pMetrics.Partner))
 	}
 	if !isEmptyString(pMetrics.Model) {
 		columns = append(columns, ModelColumnValue)
-		values = append(values, pMetrics.Model)
+		values = append(values, normalizePenetrationDimension(pMetrics.Model))
 	}
 	if !isEmptyString(pMetrics.ClientCertExpiry) {
 		columns = append(columns, ClientCertExpiryValue)
@@ -479,6 +494,9 @@ func (c *CassandraClient) UpdateFwPenetrationMetrics(kvmap map[string]string) er
 	values := []interface{}{}
 
 	for k, v := range kvmap {
+		if k == PartnerColumnValue || k == ModelColumnValue || k == RfcPartnerColumnValue || k == TitanPartnerColumnValue || k == RfcModelColumnValue {
+			v = normalizePenetrationDimension(v)
+		}
 		columns = append(columns, k)
 		values = append(values, v)
 	}

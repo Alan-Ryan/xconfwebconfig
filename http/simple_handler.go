@@ -18,7 +18,6 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/rdkcentral/xconfwebconfig/common"
@@ -81,22 +80,6 @@ func (s *XconfServer) ServerConfigHandler(w http.ResponseWriter, r *http.Request
 	w.Write(s.ConfigBytes())
 }
 
-const (
-	Default404ResponseTemplate = `<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-<title>Error 404 Not Found</title>
-</head>
-<body><h2>HTTP ERROR 404</h2>
-<p>Problem accessing %v. Reason:
-<pre>    Not Found</pre></p><hr><i><small>Powered by Jetty://</small></i><hr/>
-
-</body>
-</html>`
-)
-
 func (s *XconfServer) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-	body := fmt.Sprintf(Default404ResponseTemplate, r.URL)
-	w.Write([]byte(body))
+	WriteXconfResponse(w, http.StatusNotFound, []byte(`{"error":"not found"}`))
 }

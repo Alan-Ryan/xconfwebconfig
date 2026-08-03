@@ -20,6 +20,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -428,7 +429,7 @@ func (metrics *AppMetrics) UpdateAPIMetrics(r *http.Request, statusCode int, sta
 			modelLabel = "null"
 		} else {
 			if Ws.allowedModelLabelsSet.Contains(modelQueryParam) {
-				modelLabel = modelQueryParam
+				modelLabel = normalizeMetricDimension(modelQueryParam)
 			} else {
 				modelLabel = "others"
 			}
@@ -449,6 +450,20 @@ func (metrics *AppMetrics) UpdateAPIMetrics(r *http.Request, statusCode int, sta
 	}
 	metrics.counter.With(durationLabels).Inc()
 	metrics.duration.With(durationLabels).Observe(time.Since(startTime).Seconds())
+}
+
+func normalizeMetricDimension(v string) string {
+	v = strings.ToUpper(strings.TrimSpace(v))
+	if v == "" || v == "UNKNOWN" {
+		return "null"
+	}
+	if len(v) > 64 {
+		return "others"
+	}
+	if matched, _ := regexp.MatchString(`^[A-Z0-9._: -]+$`, v); !matched {
+		return "others"
+	}
+	return v
 }
 
 // UpdateExternalAPIMetrics updates duration and counts for external API calls to AccountService, sat etc.

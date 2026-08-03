@@ -669,8 +669,6 @@ func TestFirmwareVersionIsMatched_EmptyList(t *testing.T) {
 }
 
 // Test firmwareVersionRegExIsMatched - regex matching utility
-// NOTE: The current implementation has a bug - it checks "if err != nil && matched"
-// which should be "if err == nil && matched". These tests document current behavior.
 func TestFirmwareVersionRegExIsMatched_Match(t *testing.T) {
 	ruleBase := NewEstbFirmwareRuleBaseDefault()
 
@@ -680,10 +678,9 @@ func TestFirmwareVersionRegExIsMatched_Match(t *testing.T) {
 		},
 	}
 
-	// Due to bug in implementation (err != nil instead of err == nil), this returns false
 	result := ruleBase.firmwareVersionRegExIsMatched("1.2.3", action)
 
-	assert.False(t, result, "Current implementation has bug - returns false even for matches")
+	assert.True(t, result)
 }
 
 func TestFirmwareVersionRegExIsMatched_NoMatch(t *testing.T) {
@@ -721,10 +718,9 @@ func TestFirmwareVersionRegExIsMatched_ComplexPattern(t *testing.T) {
 		},
 	}
 
-	// Due to bug in implementation, even valid patterns return false
 	result := ruleBase.firmwareVersionRegExIsMatched("1.2.3", action)
 
-	assert.False(t, result, "Current implementation has bug - returns false even for matches")
+	assert.True(t, result)
 
 	result = ruleBase.firmwareVersionRegExIsMatched("invalid-version", action)
 

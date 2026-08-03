@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -69,17 +68,12 @@ func TestSimpleHandler(t *testing.T) {
 	req, err = http.NewRequest("GET", "/config", nil)
 	assert.NilError(t, err)
 	res = ExecuteRequest(req, router).Result()
-	assert.Equal(t, res.StatusCode, 200)
+	assert.Equal(t, res.StatusCode, http.StatusOK)
 
 	rbytes, err = io.ReadAll(res.Body)
 	assert.NilError(t, err)
 	res.Body.Close()
-	t.Log(string(rbytes))
-
-	// get the expected config file
-	configBytes, err := os.ReadFile(testConfigFile)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, rbytes, configBytes)
+	assert.Equal(t, string(rbytes), string(server.ConfigBytes()))
 }
 
 // Additional tests moved from simple_handler_additional_test.go for better organization
@@ -177,10 +171,9 @@ func TestXconfServer_ServerConfigHandler_Direct(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	// The response should contain the config bytes
 	body := recorder.Body.String()
-	if body == "" {
-		t.Error("Response should not be empty")
+	if body != string(server.ConfigBytes()) {
+		t.Error("Response should return server config bytes")
 	}
 }
 
@@ -197,16 +190,13 @@ func TestXconfServer_NotFoundHandler_Direct(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, "HTTP ERROR 404") {
-		t.Error("Response should contain 404 error message")
+	if !strings.Contains(body, "not found") {
+		t.Error("Response should contain not found message")
 	}
-	if !strings.Contains(body, "/non-existent-path") {
-		t.Error("Response should contain the requested path")
+	if strings.Contains(body, "/non-existent-path") {
+		t.Error("Response should not reflect the requested path")
 	}
-	if !strings.Contains(body, "Not Found") {
-		t.Error("Response should contain 'Not Found' text")
-	}
-	if !strings.Contains(body, "<html>") {
-		t.Error("Response should be HTML")
+	if strings.Contains(body, "<html>") {
+		t.Error("Response should not be HTML")
 	}
 }

@@ -202,7 +202,7 @@ func (ca *DefaultCassandraConnection) NewCassandraClient(conf *configuration.Con
 
 	if isSslEnabled {
 		sslOpts := &gocql.SslOptions{
-			EnableHostVerification: false,
+			EnableHostVerification: true,
 		}
 		cluster.SslOpts = sslOpts
 	}

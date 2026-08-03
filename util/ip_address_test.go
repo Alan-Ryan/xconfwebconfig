@@ -53,14 +53,14 @@ func TestGetIpAddress(t *testing.T) {
 	ipAddress = GetIpAddress(req, "", log.Fields{})
 	assert.Equal(t, ipAddress, headerIpAddress)
 
+	// test header takes precedence over query parameter
+	ipAddress = GetIpAddress(req, paramIpAddress, log.Fields{})
+	assert.Equal(t, ipAddress, headerIpAddress)
+
 	req.Header.Del(common.X_FORWARDED_FOR_HEADER)
 	req.Header.Set(common.HA_FORWARDED_FOR_HEADER, remoteIpAddress)
 	ipAddress = GetIpAddress(req, "", log.Fields{})
 	assert.Equal(t, ipAddress, remoteIpAddress)
-
-	// test param ipAddress
-	ipAddress = GetIpAddress(req, paramIpAddress, log.Fields{})
-	assert.Equal(t, ipAddress, paramIpAddress)
 }
 
 func TestTextToNumericFormatV4(t *testing.T) {

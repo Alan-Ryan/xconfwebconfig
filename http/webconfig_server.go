@@ -132,9 +132,9 @@ func NewTlsConfig(conf *configuration.Config) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
-		RootCAs:            roots,
-		InsecureSkipVerify: true,
-		Certificates:       []tls.Certificate{cert},
+		RootCAs:      roots,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
 	}, nil
 }
 

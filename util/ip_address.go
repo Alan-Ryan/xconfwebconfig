@@ -79,12 +79,12 @@ func GetIpAddress(r *http.Request, ipAddress string, fields log.Fields) string {
 		log.WithFields(fields).Warn("No IP address header present")
 	}
 
-	if foundIpFromQueryParam {
-		return ipAddress
-	}
-
 	if foundIpFromHeader || foundIpFromRemote {
 		return ipWithoutQueryParam
+	}
+
+	if foundIpFromQueryParam {
+		return ipAddress
 	}
 
 	if len(ipAddress) > 0 {

@@ -885,7 +885,10 @@ func (e *EstbFirmwareRuleBase) firmwareVersionRegExIsMatched(firmwareVersion str
 	if len(actionRegExs) != 0 {
 		for _, regEx := range actionRegExs {
 			matched, err := regexp.MatchString(regEx, firmwareVersion)
-			if err != nil && matched {
+			if err != nil {
+				continue
+			}
+			if matched {
 				return true
 			}
 		}
