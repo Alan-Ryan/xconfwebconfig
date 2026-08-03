@@ -272,7 +272,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 				log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId present,fetching AccntPrds directly from Grp Svc")
 				accountData, err = ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
 				if err != nil {
-					log.WithFields(fields).Errorf("Error getting accountProducts info from Grp Svc, err=%v", err)
+					log.WithFields(fields).Errorf("AddEstbFirmwareContext: Error getting accountProducts info from Grp Svc, err=%v", err)
 				} else {
 					if partner, ok := accountData["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
@@ -306,6 +306,7 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 							log.WithFields(fields).Errorf("AddEstbFirmwareContext: Failed to unmarshal only AccountProducts, err=%v", err)
 						}
 					}
+					//this condition is used to Update the PenetrationMetrics table with TimeZone Column
 					if Ws.Config.GetBoolean("xconfwebconfig.xconf.enable_fw_penetration_metrics", false) {
 						if contextMap[common.TIME_ZONE] != "" {
 							kvmap := map[string]string{
@@ -320,14 +321,14 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 					}
 				}
 			} else {
-				log.WithFields(fields).Errorf("Error getting accountId info from Grp Svc, err=%v", err)
+				log.WithFields(fields).Errorf("AddEstbFirmwareContext: Error getting accountId info from Grp Svc, err=%v", err)
 				xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 			}
 		}
 	}
 
 	if Xc.EnableAccountService && util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
-		log.WithFields(fields).Debugf("Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Svc due to Flag Disabled or err")
+		log.WithFields(fields).Debugf("AddEstbFirmwareContext: Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Svc due to Flag Disabled or err")
 		xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		partnerId := GetPartnerFromAccountServiceByHostMac(ws, contextMap[common.ESTB_MAC], satToken, fields)
 		if partnerId != "" {

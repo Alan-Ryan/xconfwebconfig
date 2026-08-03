@@ -153,7 +153,13 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 			contextMap[common.TIME_ZONE] = timeZone
 		}
 
+		td = &AccountServiceData{
+			AccountId: contextMap[common.ACCOUNT_ID],
+			TimeZone:  contextMap[common.TIME_ZONE],
+		}
+
 		if partner, ok := accountData["Partner"]; ok && partner != "" {
+			td.PartnerId = partner
 			contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
 		}
 
@@ -188,17 +194,12 @@ func getAccountInfoFromGrpService(ws *xhttp.XconfServer, contextMap map[string]s
 			PartnerId: contextMap[common.PARTNER_ID],
 			TimeZone:  contextMap[common.TIME_ZONE],
 		}
-
-		td = &AccountServiceData{
-			AccountId: contextMap[common.ACCOUNT_ID],
-			PartnerId: contextMap[common.PARTNER_ID],
-			TimeZone:  contextMap[common.TIME_ZONE],
-		}
 	}
 
 	return podData, td
 }
 
+// this func is used for XLE/MESH POD account data
 func AddContextForPods(ws *xhttp.XconfServer, contextMap map[string]string, satToken string, vargs ...log.Fields) (*PodData, *AccountServiceData) {
 	var fields log.Fields
 	var podData *PodData
@@ -385,60 +386,63 @@ func AddFeatureControlContextFromAccountService(ws *xhttp.XconfServer, contextMa
 					accountType := xAccountId.GetAccountType()
 					contextMap[common.ACCOUNT_ID] = accountId
 					contextMap[common.ACCOUNT_TYPE] = accountType
+					td = &AccountServiceData{
+						AccountId: contextMap[common.ACCOUNT_ID],
+					}
 					log.WithFields(fields).Debugf("AddFeatureControlContextFromAccountService Successfully fetched AcntId and AcntType from Grp Svc")
 				}
 
-				accountProducts, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
-				if err != nil {
-					log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc, err=%v", err)
-				} else {
-					//partner fetch
-					if partner, ok := accountProducts["Partner"]; ok && partner != "" {
-						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
-					}
-					td = &AccountServiceData{
-						AccountId: contextMap[common.ACCOUNT_ID],
-						PartnerId: contextMap[common.PARTNER_ID],
-					}
-					contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
-
-					if countryCode, ok := accountProducts["CountryCode"]; ok {
-						contextMap[common.COUNTRY_CODE] = countryCode
-					}
-
-					if TimeZone, ok := accountProducts["TimeZone"]; ok {
-						contextMap[common.TIME_ZONE] = TimeZone
-					}
-
-					if accountType, ok := accountProducts["Type"]; ok && accountType != "" {
-						contextMap[common.ACCOUNT_TYPE] = accountType
-					}
-
-					if State, ok := accountProducts["State"]; ok {
-						contextMap[common.ACCOUNT_STATE] = State
-					}
-
-					if raw, ok := accountProducts["AccountProducts"]; ok && raw != "" {
-						var ap map[string]string
-						err := json.Unmarshal([]byte(accountProducts["AccountProducts"]), &ap)
-						if err == nil {
-							for key, val := range ap {
-								contextMap[key] = val
-							}
-							xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
-							log.WithFields(fields).Debug("AddFeatureControlContextFromAccountService AcntId,AccntProduct successfully retrieved from Grp Svc")
-						} else {
-							log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService: Failed to unmarshal only AccountProducts, err=%v", err)
+				if contextMap[common.ACCOUNT_ID] != "" && !util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
+					accountData, err := ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
+					if err != nil {
+						log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService Error getting accountProducts info from Grp Svc, err=%v", err)
+					} else {
+						//partner fetch
+						if partner, ok := accountData["Partner"]; ok && partner != "" {
+							td.PartnerId = partner //adding PartnerId to AccountServiceData
+							contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
 						}
+
+						contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
+
+						if countryCode, ok := accountData["CountryCode"]; ok && countryCode != "" {
+							contextMap[common.COUNTRY_CODE] = countryCode
+						}
+
+						if TimeZone, ok := accountData["TimeZone"]; ok && TimeZone != "" {
+							contextMap[common.TIME_ZONE] = TimeZone
+						}
+
+						if accountType, ok := accountData["Type"]; ok && accountType != "" {
+							contextMap[common.ACCOUNT_TYPE] = accountType
+						}
+
+						if State, ok := accountData["State"]; ok {
+							contextMap[common.ACCOUNT_STATE] = State
+						}
+
+						if raw, ok := accountData["AccountProducts"]; ok && raw != "" {
+							var ap map[string]string
+							err := json.Unmarshal([]byte(accountData["AccountProducts"]), &ap)
+							if err == nil {
+								for key, val := range ap {
+									contextMap[key] = val
+								}
+								xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
+								log.WithFields(fields).Debug("AddFeatureControlContextFromAccountService AcntId,AccntProduct successfully retrieved from Grp Svc")
+							} else {
+								log.WithFields(fields).Errorf("AddFeatureControlContextFromAccountService: Failed to unmarshal only AccountProducts, err=%v", err)
+							}
+						}
+						return td
 					}
-					return td
 				}
 			}
 		}
 	}
 
 	if Xc.EnableAccountService {
-		log.WithFields(fields).Debug("Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Service due to Flag Disabled or err")
+		log.WithFields(fields).Debug("AddFeatureControlContextFromAccountService: Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Service due to Flag Disabled or err")
 		var accountServiceObject xhttp.AccountServiceDevices
 		if util.IsValidMacAddress(contextMap[common.ESTB_MAC_ADDRESS]) {
 			accountServiceObject, err = accountServiceConnector.GetDevices(common.HOST_MAC_PARAM, contextMap[common.ESTB_MAC_ADDRESS], satToken, fields)
@@ -551,10 +555,6 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 					if partner, ok := accountData["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
 					}
-					td = &AccountServiceData{
-						AccountId: contextMap[common.ACCOUNT_ID],
-						PartnerId: contextMap[common.PARTNER_ID],
-					}
 					contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
 
 					if countryCode, ok := accountData["CountryCode"]; ok {
@@ -591,7 +591,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 		}
 	}
 
-	// if/else statement to check if we should call DeviceService or AccountService
+	// if/else statement to check if we should call DeviceService or AccountService only when accountId is unknown
 	if strings.EqualFold("XPC", contextMap[common.ACCOUNT_MGMT]) && util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
 		podData, td = AddContextForPods(ws, contextMap, satToken, fields)
 		xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
