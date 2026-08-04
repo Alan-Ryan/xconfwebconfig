@@ -71,7 +71,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 
 	if Xc.EnableXacGroupService {
 		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
-			if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || contextMap[common.ACCOUNT_ID] == "" || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
+			if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
 				xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 				if util.IsValidMacAddress(contextMap[common.ESTB_MAC_ADDRESS]) {
 					macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ESTB_MAC_ADDRESS])
@@ -90,6 +90,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 				accountId = xAccountId.GetAccountId()
 				accountType := xAccountId.GetAccountType()
 				contextMap[common.ACCOUNT_ID] = accountId
+				contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
 				contextMap[common.ACCOUNT_TYPE] = accountType
 				log.WithFields(fields).Debug("AddLogUploaderContext Successfully fetched AcntId and AcntType from Grp Svc")
 			}
@@ -103,8 +104,6 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 					if partner, ok := accountData["Partner"]; ok && partner != "" {
 						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
 					}
-
-					contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
 
 					if countryCode, ok := accountData["CountryCode"]; ok && countryCode != "" {
 						contextMap[common.COUNTRY_CODE] = countryCode
