@@ -19,6 +19,7 @@ package dataapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -60,6 +61,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 	var xAccountId *conversion.XBOAccount
 	var err error
 	var localToken *xhttp.SatToken
+	log.Debug(fmt.Sprintf("AddLogUploaderContext start ... contextMap %v", contextMap))
 	NormalizeLogUploaderContext(ws, r, contextMap, usePartnerAppType, fields)
 
 	localToken, err = xhttp.GetLocalSatToken(fields)
@@ -156,6 +158,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 	// call this method after any backend lookups that might populate partner info, but before group service call so tenantId is available for cached partner tags
 	contextMap[common.TENANT_ID] = xhttp.ResolveTenantIdFromPartner(contextMap[common.PARTNER_ID])
 	coastTags := AddContextFromTaggingService(ws, contextMap, satToken, "", false, fields)
+	log.Debug(fmt.Sprintf("AddEstbFirmwareContext ... end contextMap %v", contextMap))
 	return coastTags, nil
 }
 
