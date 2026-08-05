@@ -156,7 +156,7 @@ func AddLogUploaderContext(ws *xhttp.XconfServer, r *http.Request, contextMap ma
 		}
 	}
 	coastTags := AddContextFromTaggingService(ws, contextMap, satToken, "", false, fields)
-	log.Debug(fmt.Sprintf("AddEstbFirmwareContext ... end contextMap %v", contextMap))
+	log.Debug(fmt.Sprintf("AddLogUploaderContext ... end contextMap %v", contextMap))
 	return coastTags, nil
 }
 
