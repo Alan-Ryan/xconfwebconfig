@@ -527,6 +527,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 		fields = log.Fields{}
 	}
 
+	log.Debug(fmt.Sprintf("AddFeatureControlContext start ... contextMap %v", contextMap))
 	contextMap[common.PASSED_PARTNER_ID] = contextMap[common.PARTNER_ID]
 
 	// getting local sat token
@@ -603,6 +604,7 @@ func AddFeatureControlContext(ws *xhttp.XconfServer, r *http.Request, contextMap
 	tags := AddContextFromTaggingService(ws, contextMap, satToken, configSetHash, true, fields)
 	ftTags := AddGroupServiceFTContext(Ws, common.ESTB_MAC_ADDRESS, contextMap, false, fields)
 	CompareTaggingSources(contextMap, tags, ftTags, fields)
+	log.Debug(fmt.Sprintf("AddFeatureControlContext ... end contextMap %v", contextMap))
 	tags = append(tags, ftTags...)
 	return podData, tags, td
 }
