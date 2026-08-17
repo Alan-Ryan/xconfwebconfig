@@ -29,10 +29,11 @@ var _ xhttp.GroupServiceConnector = (*accountInfoGroupServiceConnector)(nil)
 // accountInfoGroupServiceConnector is a small test double used by dataapi tests
 // that need controlled account-id/account-products responses.
 type accountInfoGroupServiceConnector struct {
-	accountData     *conversion.XBOAccount
-	accountProducts map[string]string
-	accountIDErr    error
-	productsErr     error
+	accountData           *conversion.XBOAccount
+	accountProducts       map[string]string
+	accountIDErr          error
+	productsErr           error
+	getAccountIdCallCount int
 }
 
 func (m *accountInfoGroupServiceConnector) GroupServiceHost() string {
@@ -64,9 +65,10 @@ func (m *accountInfoGroupServiceConnector) GetFeatureTagsHashedItems(name string
 }
 
 func (m *accountInfoGroupServiceConnector) GetAccountIdData(mac string, fields log.Fields) (*conversion.XBOAccount, error) {
+	m.getAccountIdCallCount++
 	return m.accountData, m.accountIDErr
 }
 
-func (m *accountInfoGroupServiceConnector) GetAccountProducts(accountId string, fields log.Fields) (map[string]string, error) {
+func (m *accountInfoGroupServiceConnector) GetAccountProductsData(accountId string, fields log.Fields) (map[string]string, error) {
 	return m.accountProducts, m.productsErr
 }

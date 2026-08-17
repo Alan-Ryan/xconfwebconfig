@@ -241,86 +241,97 @@ func AddEstbFirmwareContext(ws *xhttp.XconfServer, r *http.Request, contextMap m
 	var xAccountId *conversion.XBOAccount
 	var accountId string
 	var accountType string
+	var accountData map[string]string
 
-	var accountProducts map[string]string
-
-	//default flow calling xac/ada keyspace
+	//This code is to enable xac grp service and only for AccountType based models or for all models when list is empty
 	if Xc.EnableXacGroupService {
-		//metrics for IncreaseUnknownIdCounter
-		var macAddress string
-		//this is for metrics unknown accntId
-		if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || contextMap[common.ACCOUNT_ID] == "" || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
-			xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
-			if util.IsValidMacAddress(contextMap[common.ESTB_MAC]) {
-				macAddress = contextMap[common.ESTB_MAC]
-				macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ESTB_MAC])
-				xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
-			}
-
-			if xAccountId == nil && err != nil {
-				if util.IsValidMacAddress(contextMap[common.ECM_MAC_ADDRESS]) {
-					macAddress = contextMap[common.ECM_MAC_ADDRESS]
-					macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC_ADDRESS])
+		if Xc.AccountTypeModelSet.IsEmpty() || Xc.AccountTypeModelSet.Contains(strings.ToUpper(contextMap[common.MODEL])) {
+			if util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) || util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
+				xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
+				if util.IsValidMacAddress(contextMap[common.ESTB_MAC]) {
+					macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ESTB_MAC])
 					xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
 				}
-			}
-		}
 
-		if xAccountId != nil && err == nil {
-			accountId = xAccountId.GetAccountId()
-			accountType = xAccountId.GetAccountType()
-			contextMap[common.ACCOUNT_ID] = accountId
-			contextMap[common.ACCOUNT_TYPE] = accountType
-			log.WithFields(fields).Debugf("AddEstbFirmwareContext Successfully fetched AcntId='%s' and AcntType='%s' from Grp Svc", accountId, accountType)
-		}
-
-		if contextMap[common.ACCOUNT_ID] != "" && !util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
-			log.WithFields(fields).Debugf("AddEstbFirmwareContext AcntId='%s' already present,fetching AccntPrds directly from ada", contextMap[common.ACCOUNT_ID])
-			accountProducts, err = ws.GroupServiceConnector.GetAccountProducts(accountId, fields)
-			if err != nil {
-				log.WithFields(log.Fields{"error": err}).Errorf("Error getting accountProducts information from Grp Service for AccountId=%s", contextMap[common.ACCOUNT_ID])
-			} else {
-				if partner, ok := accountProducts["Partner"]; ok {
-					contextMap[common.PARTNER_ID] = partner
-				}
-				if countryCode, ok := accountProducts["CountryCode"]; ok {
-					contextMap[common.COUNTRY_CODE] = countryCode
-				}
-
-				if TimeZone, ok := accountProducts["TimeZone"]; ok {
-					contextMap[common.TIME_ZONE] = TimeZone
-				}
-
-				if accountType, ok := accountProducts["AccountType"]; ok && accountType != "" {
-					contextMap[common.ACCOUNT_TYPE] = accountType
-				}
-
-				if raw, ok := accountProducts["AccountProducts"]; ok && raw != "" {
-					var ap map[string]string
-					err = json.Unmarshal([]byte(accountProducts["AccountProducts"]), &ap)
-					if err == nil {
-						for key, val := range ap {
-							contextMap[key] = val
-						}
-
-						if accountState, ok := accountProducts["State"]; ok {
-							contextMap[common.ACCOUNT_STATE] = accountState
-						}
-					} else {
-						log.WithFields(fields).Error("Failed to unmarshall AccountProducts")
+				if xAccountId == nil {
+					if util.IsValidMacAddress(contextMap[common.ECM_MAC]) {
+						macPart := util.RemoveNonAlphabeticSymbols(contextMap[common.ECM_MAC])
+						xAccountId, err = ws.GroupServiceConnector.GetAccountIdData(macPart, fields)
 					}
 				}
-				xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
-				log.WithFields(fields).Debugf("AddEstbFirmwareContext AcntId='%s' AcntType='%s' ,AccntPrd='%v' successfully retrieved from xac/ada", contextMap[common.ACCOUNT_ID], contextMap[common.ACCOUNT_TYPE], contextMap)
 			}
-		} else {
-			log.WithFields(log.Fields{"error": err}).Errorf("Error getting accountId information from Grp Service for Mac=%s", macAddress)
-			xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL])
+
+			if xAccountId != nil && err == nil {
+				accountId = xAccountId.GetAccountId()
+				accountType = xAccountId.GetAccountType()
+				contextMap[common.ACCOUNT_ID] = accountId
+				contextMap[common.ACCOUNT_TYPE] = accountType
+				contextMap[common.ACCOUNT_HASH] = util.CalculateHash(contextMap[common.ACCOUNT_ID])
+				log.WithFields(fields).Debugf("AddEstbFirmwareContext Successfully fetched AcntId and AcntType from Grp Svc")
+			}
+
+			//this case gets executed when accountId comes in the device request,so we directly fetch AccntProducts
+			if contextMap[common.ACCOUNT_ID] != "" && !util.IsUnknownValue(contextMap[common.ACCOUNT_ID]) {
+				log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId present,fetching AccntPrds directly from Grp Svc")
+				accountData, err = ws.GroupServiceConnector.GetAccountProductsData(contextMap[common.ACCOUNT_ID], fields)
+				if err != nil {
+					log.WithFields(fields).Errorf("AddEstbFirmwareContext: Error getting accountProducts info from Grp Svc, err=%v", err)
+				} else {
+					if partner, ok := accountData["Partner"]; ok && partner != "" {
+						contextMap[common.PARTNER_ID] = strings.ToUpper(partner)
+					}
+					if countryCode, ok := accountData["CountryCode"]; ok && countryCode != "" {
+						contextMap[common.COUNTRY_CODE] = countryCode
+					}
+
+					if TimeZone, ok := accountData["TimeZone"]; ok && TimeZone != "" {
+						contextMap[common.TIME_ZONE] = TimeZone
+					}
+
+					if accountType, ok := accountData["Type"]; ok && accountType != "" {
+						contextMap[common.ACCOUNT_TYPE] = accountType
+					}
+
+					if accountState, ok := accountData["State"]; ok && accountState != "" {
+						contextMap[common.ACCOUNT_STATE] = accountState
+					}
+
+					if raw, ok := accountData["AccountProducts"]; ok && raw != "" {
+						var ap map[string]string
+						err = json.Unmarshal([]byte(accountData["AccountProducts"]), &ap)
+						if err == nil {
+							for key, val := range ap {
+								contextMap[key] = val
+							}
+							xhttp.IncreaseGrpServiceFetchCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
+							log.WithFields(fields).Debug("AddEstbFirmwareContext AcntId,AccntProduct successfully retrieved from Grp Svc")
+						} else {
+							log.WithFields(fields).Errorf("AddEstbFirmwareContext: Failed to unmarshal only AccountProducts, err=%v", err)
+						}
+					}
+					//this condition is used to Update the PenetrationMetrics table with TimeZone Column
+					if Ws.Config.GetBoolean("xconfwebconfig.xconf.enable_fw_penetration_metrics", false) {
+						if contextMap[common.TIME_ZONE] != "" {
+							kvmap := map[string]string{
+								db.EstbMacColumnName:   contextMap[common.ESTB_MAC],
+								db.TimeZoneColumnValue: contextMap[common.TIME_ZONE],
+							}
+							err := db.GetDatabaseClient().SetPenetrationData(kvmap)
+							if err != nil {
+								log.Errorf("Can't save Timezone in penetration metrics, estbMac=%s, error=%+v", contextMap[common.ESTB_MAC], err)
+							}
+						}
+					}
+				}
+			} else {
+				log.WithFields(fields).Errorf("AddEstbFirmwareContext: Error getting accountId info from Grp Svc, err=%v", err)
+				xhttp.IncreaseGrpServiceNotFoundResponseCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
+			}
 		}
 	}
 
 	if Xc.EnableAccountService && util.IsUnknownValue(contextMap[common.PARTNER_ID]) {
-		log.WithFields(fields).Debugf("Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Service for MAC='%s' due to Flag Disabled or err", contextMap[common.ESTB_MAC])
+		log.WithFields(fields).Debugf("AddEstbFirmwareContext: Fallback Trying via Old Account Service,Failed to Get AccountId via Grp Svc due to Flag Disabled or err")
 		xhttp.IncreaseUnknownIdCounter(contextMap[common.MODEL], contextMap[common.PARTNER_ID])
 		partnerId := GetPartnerFromAccountServiceByHostMac(ws, contextMap[common.ESTB_MAC], satToken, fields)
 		if partnerId != "" {

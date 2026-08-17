@@ -706,7 +706,7 @@ func TestGetAccountInfoFromGrpService_AccountTypePrecedence(t *testing.T) {
 						AccountType: tt.groupServiceAccountType,
 					},
 					accountProducts: map[string]string{
-						"AccountType": tt.accountProductsTypeValue,
+						"Type": tt.accountProductsTypeValue,
 					},
 				},
 			}
@@ -722,6 +722,205 @@ func TestGetAccountInfoFromGrpService_AccountTypePrecedence(t *testing.T) {
 			assert.NotNil(t, accountServiceData)
 			assert.Equal(t, "acc-123", contextMap[common.ACCOUNT_ID])
 			assert.Equal(t, tt.expectedAccountType, contextMap[common.ACCOUNT_TYPE])
+		})
+	}
+}
+
+// TestAddContextForPods_AccountTypeModelSetGating verifies that the Group Service
+// lookup is gated by Xc.AccountTypeModelSet: it runs only when the set is empty or
+// when it contains the (case-normalized) request model. This guards the
+// configuration-driven, request-time gating behavior against regressions.
+func TestAddContextForPods_AccountTypeModelSetGating(t *testing.T) {
+	originalXc := Xc
+	defer func() { Xc = originalXc }()
+
+	tests := []struct {
+		name                string
+		accountTypeModelSet util.Set
+		model               string
+		expectGrpCall       bool
+	}{
+		{
+			name:                "model in list triggers group service lookup",
+			accountTypeModelSet: util.NewSet("MODEL123"),
+			model:               "MODEL123",
+			expectGrpCall:       true,
+		},
+		{
+			name:                "model not in list skips group service lookup",
+			accountTypeModelSet: util.NewSet("MODEL123"),
+			model:               "OTHERMODEL",
+			expectGrpCall:       false,
+		},
+		{
+			name:                "empty list triggers group service lookup for any model",
+			accountTypeModelSet: util.NewSet(),
+			model:               "ANYMODEL",
+			expectGrpCall:       true,
+		},
+		{
+			name:                "lowercase request model matches uppercase configured model",
+			accountTypeModelSet: util.NewSet("MODEL123"),
+			model:               "model123",
+			expectGrpCall:       true,
+		},
+		{
+			name:                "mixed-case request model matches uppercase configured model",
+			accountTypeModelSet: util.NewSet("MODEL123"),
+			model:               "Model123",
+			expectGrpCall:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			connector := &accountInfoGroupServiceConnector{
+				accountData: &conversion.XBOAccount{
+					AccountId:   "acc-123",
+					AccountType: "residential",
+				},
+				accountProducts: map[string]string{},
+			}
+			ws := &xhttp.XconfServer{
+				GroupServiceConnector: connector,
+			}
+			Xc = &XconfConfigs{
+				EnableXacGroupService:       true,
+				AccountTypeModelSet:         tt.accountTypeModelSet,
+				EnableMacAccountServiceCall: false,
+				EnableDeviceDBLookup:        false,
+				EnableDeviceService:         false,
+			}
+
+			contextMap := map[string]string{
+				common.MODEL:      tt.model,
+				common.SERIAL_NUM: "serial-123",
+			}
+
+			podData, _ := AddContextForPods(ws, contextMap, "sat-token", log.Fields{})
+
+			if tt.expectGrpCall {
+				assert.Equal(t, 1, connector.getAccountIdCallCount, "group service should be called when model is gated in")
+				assert.NotNil(t, podData)
+				assert.Equal(t, "acc-123", contextMap[common.ACCOUNT_ID])
+			} else {
+				assert.Equal(t, 0, connector.getAccountIdCallCount, "group service should be skipped when model is gated out")
+				assert.Nil(t, podData)
+			}
+		})
+	}
+}
+
+func TestUsePartnerRoute_DecisionMatrix(t *testing.T) {
+	originalXc := Xc
+	defer func() { Xc = originalXc }()
+
+	tests := []struct {
+		name     string
+		xc       *XconfConfigs
+		context  map[string]string
+		expected bool
+	}{
+		{
+			name: "returns false when config is nil",
+			xc:   nil,
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+		{
+			name: "returns false when partner routing flag is disabled",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: false,
+				PartnerSet:           util.NewSet("FOXTEL"),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+		{
+			name: "returns true when enabled, partner matches, and account id is unknown",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           util.NewSet("FOXTEL"),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: true,
+		},
+		{
+			name: "returns true when enabled, partner matches, and account id is known",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           util.NewSet("FOXTEL"),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "acc-123",
+			},
+			expected: true,
+		},
+		{
+			name: "returns false when enabled and partner does not match partner set",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           util.NewSet("FOXTEL"),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "sky",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+		{
+			name: "returns false when partner is blank",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           util.NewSet("FOXTEL"),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+		{
+			name: "returns false when partner set is nil",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           nil,
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+		{
+			name: "returns false when partner set is empty",
+			xc: &XconfConfigs{
+				EnablePartnerRouting: true,
+				PartnerSet:           util.NewSet(),
+			},
+			context: map[string]string{
+				common.PARTNER_ID: "foxtel",
+				common.ACCOUNT_ID: "unknown",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			Xc = tt.xc
+			actual := usePartnerRoute(tt.context)
+			assert.Equal(t, tt.expected, actual)
 		})
 	}
 }

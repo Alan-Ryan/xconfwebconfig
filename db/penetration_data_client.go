@@ -45,6 +45,7 @@ const (
 	RfcEstbIpColumnName               = "rfc_estb_ip"
 	RfcTsColumnName                   = "rfc_ts"
 	RfcPostProcColumnName             = "rfc_post_proc"
+	TimeZoneColumnValue               = "time_zone"
 )
 
 // PenetrationData struct
@@ -61,6 +62,7 @@ type FwPenetrationData struct {
 	FwTs                    int64
 	ClientCertExpiry        string
 	RecoveryCertExpiry      string
+	TimeZone                string
 }
 
 type RfcPenetrationData struct {
@@ -92,6 +94,7 @@ type RfcPenetrationData struct {
 	RfcPostProc          string
 	ClientCertExpiry     string
 	RecoveryCertExpiry   string
+	TimeZone             string
 }
 
 type SecurityTokenDeviceInfo struct {
@@ -161,7 +164,6 @@ func (c *CassandraClient) SetFwPenetrationData(pData *FwPenetrationData) error {
 		columns = append(columns, RecoveryCertExpiryValue)
 		values = append(values, pData.RecoveryCertExpiry)
 	}
-
 	return c.updatePenetrationData(columns, values)
 }
 
@@ -241,6 +243,10 @@ func (c *CassandraClient) SetRfcPenetrationData(pData *RfcPenetrationData, isRet
 	if !isEmptyString(pData.TitanAccountId) {
 		columns = append(columns, TitanAccountIdColumnName)
 		values = append(values, pData.TitanAccountId)
+	}
+	if !isEmptyString(pData.TimeZone) {
+		columns = append(columns, TimeZoneColumnValue)
+		values = append(values, pData.TimeZone)
 	}
 
 	//if we return 304 based on precook data, we do not update features and applied_rules with empty string
@@ -359,6 +365,12 @@ func (c *CassandraClient) GetFwPenetrationData(estbMac string) (*FwPenetrationDa
 				// fallback for existing int64 values
 				pData.FwTs = itfvalue
 			}
+		case TimeZoneColumnValue:
+			if itfvalue, ok := v.(string); ok {
+				if len(itfvalue) > 0 {
+					pData.TimeZone = itfvalue
+				}
+			}
 		}
 	}
 
@@ -421,6 +433,12 @@ func (c *CassandraClient) GetRfcPenetrationData(estbMac string) (*RfcPenetration
 			} else if itfvalue, ok := v.(int64); ok {
 				// fallback for existing int64 values
 				pData.RfcTs = itfvalue
+			}
+		case TimeZoneColumnValue:
+			if itfvalue, ok := v.(string); ok {
+				if len(itfvalue) > 0 {
+					pData.TimeZone = itfvalue
+				}
 			}
 		}
 	}
