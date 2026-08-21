@@ -23,7 +23,13 @@ import (
 
 	"github.com/rdkcentral/xconfwebconfig/db"
 
+	"fmt"
+
 	"gotest.tools/assert"
+)
+
+const (
+	queryByEstbMac = `SELECT estb_mac FROM %s WHERE estb_mac = ?`
 )
 
 func TestFwPenetrationDataCRUD(t *testing.T) {
@@ -32,6 +38,9 @@ func TestFwPenetrationDataCRUD(t *testing.T) {
 	}
 
 	client := db.GetDatabaseClient()
+	cc, ok := client.(*db.CassandraClient)
+	assert.Assert(t, ok)
+
 	tenantId := db.GetDefaultTenantId()
 	estbMac := "A4:F3:E8:79:C8:60"
 
@@ -50,34 +59,60 @@ func TestFwPenetrationDataCRUD(t *testing.T) {
 		RecoveryCertExpiry:      "2026-12-31",
 	}
 
-	// test create
-	err := client.SetFwPenetrationData(pData)
-	assert.NilError(t, err)
+	dualWriteModes := []bool{true, false}
+	for _, mode := range dualWriteModes {
+		t.Run(fmt.Sprintf("IsDualWriteEnabled=%v", mode), func(t *testing.T) {
+			err := truncateTable(db.PenetrationMetricsTable)
+			assert.NilError(t, err)
+			err = truncateTable(db.PenetrationDataTable)
+			assert.NilError(t, err)
 
-	// test retrieve
-	result, err := client.GetFwPenetrationData(estbMac)
-	assert.NilError(t, err)
-	assert.Assert(t, result != nil)
+			db.SetDualWriteEnabled(mode)
 
-	assert.Equal(t, result.EstbMac, estbMac)
-	assert.Equal(t, result.Partner, pData.Partner)
-	assert.Equal(t, result.Model, pData.Model)
-	assert.Equal(t, result.FwFilename, pData.FwFilename)
-	assert.Equal(t, result.FwVersion, pData.FwVersion)
-	assert.Equal(t, result.FwReportedVersion, pData.FwReportedVersion)
-	assert.Equal(t, result.FwAdditionalVersionInfo, pData.FwAdditionalVersionInfo)
-	assert.Equal(t, result.FwAppliedRule, pData.FwAppliedRule)
+			// test create
+			err = client.SetFwPenetrationData(pData)
+			assert.NilError(t, err)
 
-	// test update — overwrite with new firmware info
-	pData.FwVersion = "TEST_1.1p1s1_VBN"
-	pData.FwFilename = "TEST_1.1p1s1_VBN_sstb.bin"
-	err = client.SetFwPenetrationData(pData)
-	assert.NilError(t, err)
+			// test retrieve
+			result, err := client.GetFwPenetrationData(estbMac)
+			assert.NilError(t, err)
+			assert.Assert(t, result != nil)
 
-	updated, err := client.GetFwPenetrationData(estbMac)
-	assert.NilError(t, err)
-	assert.Equal(t, updated.FwVersion, "TEST_1.1p1s1_VBN")
-	assert.Equal(t, updated.FwFilename, "TEST_1.1p1s1_VBN_sstb.bin")
+			assert.Equal(t, result.EstbMac, estbMac)
+			assert.Equal(t, result.Partner, pData.Partner)
+			assert.Equal(t, result.Model, pData.Model)
+			assert.Equal(t, result.FwFilename, pData.FwFilename)
+			assert.Equal(t, result.FwVersion, pData.FwVersion)
+			assert.Equal(t, result.FwReportedVersion, pData.FwReportedVersion)
+			assert.Equal(t, result.FwAdditionalVersionInfo, pData.FwAdditionalVersionInfo)
+			assert.Equal(t, result.FwAppliedRule, pData.FwAppliedRule)
+
+			// test update — overwrite with new firmware info
+			pData.FwVersion = "TEST_1.1p1s1_VBN"
+			pData.FwFilename = "TEST_1.1p1s1_VBN_sstb.bin"
+			err = client.SetFwPenetrationData(pData)
+			assert.NilError(t, err)
+
+			updated, err := client.GetFwPenetrationData(estbMac)
+			assert.NilError(t, err)
+			assert.Equal(t, updated.FwVersion, "TEST_1.1p1s1_VBN")
+			assert.Equal(t, updated.FwFilename, "TEST_1.1p1s1_VBN_sstb.bin")
+
+			if db.IsDualWriteEnabled() {
+				// when dual write is enabled, ensure we also write in PenetrationMetrics table
+				stmt := fmt.Sprintf(queryByEstbMac, cc.GetTableNameFromLogKeyspace(db.PenetrationMetricsTable))
+				rows, err := db.GetSimpleDao().Query(stmt, estbMac)
+				assert.NilError(t, err)
+				assert.Assert(t, len(rows) == 1)
+			} else {
+				// when dual write is disabled, ensure we do not write in PenetrationMetrics table
+				stmt := fmt.Sprintf(queryByEstbMac, cc.GetTableNameFromLogKeyspace(db.PenetrationMetricsTable))
+				rows, err := db.GetSimpleDao().Query(stmt, estbMac)
+				assert.NilError(t, err)
+				assert.Assert(t, len(rows) == 0)
+			}
+		})
+	}
 }
 
 func TestFwPenetrationDataEmptyFields(t *testing.T) {

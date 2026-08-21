@@ -223,7 +223,7 @@ func truncateTable(tableName string) error {
 
 	tableInfo, err := db.GetTableInfo(tableName)
 	if err != nil || tableInfo.Unsharded {
-		if tableName == db.TABLE_LOGS {
+		if tableName == db.TABLE_LOGS || tableName == db.PenetrationMetricsTable {
 			tableName = cassandraClient.GetTableNameFromLogKeyspace(tableName)
 		}
 		return cassandraClient.Query(fmt.Sprintf(`TRUNCATE table %s`, tableName)).Exec()

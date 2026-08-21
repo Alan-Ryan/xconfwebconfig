@@ -25,6 +25,8 @@ import (
 	coreef "github.com/rdkcentral/xconfwebconfig/shared/estbfirmware"
 	"github.com/rdkcentral/xconfwebconfig/util"
 
+	"fmt"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,14 +37,13 @@ func TestChangeLogs(t *testing.T) {
 
 	tenantId := db.GetDefaultTenantId()
 	key := "A4:F3:E8:79:C8:60"
-	logTables := []string{db.TABLE_CONFIG_CHANGE_LOGS}
-	if db.IsDualWriteEnabled() {
-		logTables = append(logTables, db.TABLE_LOGS)
-	}
+	dualWriteModes := []bool{true, false}
+	for _, mode := range dualWriteModes {
+		t.Run(fmt.Sprintf("IsDualWriteEnabled=%v", mode), func(t *testing.T) {
+			truncateTable(db.TABLE_CONFIG_CHANGE_LOGS)
+			truncateTable(db.TABLE_LOGS)
 
-	for _, tableName := range logTables {
-		t.Run(tableName, func(t *testing.T) {
-			truncateTable(tableName)
+			db.SetDualWriteEnabled(mode)
 
 			// test create config log
 			jsonData := []byte(configChangeLogJsonTemplate1)
@@ -75,6 +76,18 @@ func TestChangeLogs(t *testing.T) {
 			assert.Equal(t, retrievedConfigChangeLog.Input.EstbMac, configChangeLog.Input.EstbMac)
 			assert.Equal(t, retrievedConfigChangeLog.Input.Env, configChangeLog.Input.Env)
 			assert.Equal(t, retrievedConfigChangeLog.Input.Model, configChangeLog.Input.Model)
+
+			if db.IsDualWriteEnabled() {
+				// when dual write is enabled, ensure we also write in Logs2 table
+				data, err := db.GetListingDao().GetAll(tenantId, db.TABLE_LOGS, configChangeLog.Input.EstbMac)
+				assert.Nil(t, err)
+				assert.Equal(t, len(data), 3) // 2 config logs + 1 last log
+			} else {
+				// when dual write is disabled, ensure we do not write in Logs2 table
+				data, err := db.GetListingDao().GetAll(tenantId, db.TABLE_LOGS, configChangeLog.Input.EstbMac)
+				assert.Nil(t, err)
+				assert.Equal(t, len(data), 0)
+			}
 		})
 	}
 }

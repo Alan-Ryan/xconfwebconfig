@@ -196,18 +196,22 @@ var initOnce sync.Once
 var grpCacheLoadFunc cache.LoaderFunc
 var defaultTenantId = "COMCAST"
 
+func GetDefaultTenantId() string {
+	return defaultTenantId
+}
+
 // If true, write operations will be performed on both old and new Logs2 & PenetrationMetrics,
 // while read operations will only read from the old tables; which is used for gradual migration.
 // When data from those two tables are fully migrated, this can be set to false to only write
 // to the new tables and read from the new tables.
 var dualWriteEnabled bool
 
-func GetDefaultTenantId() string {
-	return defaultTenantId
-}
-
 func IsDualWriteEnabled() bool {
 	return dualWriteEnabled
+}
+
+func SetDualWriteEnabled(enabled bool) {
+	dualWriteEnabled = enabled
 }
 
 // GetCacheManager Initializes a CacheManager
