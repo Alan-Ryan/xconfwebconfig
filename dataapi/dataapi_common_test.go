@@ -3,10 +3,12 @@ package dataapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/rdkcentral/xconfwebconfig/common"
+	"github.com/rdkcentral/xconfwebconfig/rulesengine"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -230,6 +232,20 @@ func TestNormalizeCommonContext_PartnerIdWithWhitespaceAndTooLong(t *testing.T) 
 
 	// After trimming whitespace, PartnerID is > 24 chars, should be "INVALID"
 	assert.Equal(t, "INVALID", contextMap[common.PARTNER_ID])
+}
+
+func TestNormalizeCommonContext_PopulatesEstbHashFromNormalizedMac(t *testing.T) {
+	contextMap := map[string]string{
+		"estbMac": "aa:bb:cc:dd:ee:ff",
+	}
+
+	NormalizeCommonContext(contextMap, "estbMac", "ecmMac")
+
+	expectedEstbMac := "AA:BB:CC:DD:EE:FF"
+	expectedEstbHash, ok := rulesengine.GetPercentHash(expectedEstbMac)
+	assert.True(t, ok)
+	assert.Equal(t, expectedEstbMac, contextMap["estbMac"])
+	assert.Equal(t, strconv.FormatFloat(expectedEstbHash, 'f', -1, 64), contextMap[common.ESTB_HASH])
 }
 
 func TestGetApplicationTypeFromPartnerId(t *testing.T) {
