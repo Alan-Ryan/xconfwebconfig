@@ -57,6 +57,9 @@ make
 ```shell
 export SAT_CLIENT_ID='xxxxxx'
 export SAT_CLIENT_SECRET='yyyyyy'
+# Required only when xconfwebconfig.partner_services.enabled=true:
+export PARTNER_SAT_CLIENT_ID='xxxxxx'
+export PARTNER_SAT_CLIENT_SECRET='yyyyyy'
 mkdir -p /app/logs/xconfwebconfig
 cd .../xconfwebconfig
 bin/xconfwebconfig-linux-amd64 -f config/sample_xconfwebconfig.conf
