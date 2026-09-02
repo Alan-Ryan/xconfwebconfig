@@ -19,6 +19,7 @@ package db
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -196,6 +197,17 @@ func (ca *DefaultCassandraConnection) NewCassandraClient(conf *configuration.Con
 	if isSslEnabled {
 		sslOpts := &gocql.SslOptions{
 			EnableHostVerification: false,
+		}
+		sslServerName := conf.GetString("xconfwebconfig.database.ssl_server_name")
+		if len(sslServerName) > 0 {
+			sslOpts.Config = &tls.Config{
+				ServerName:         sslServerName,
+				InsecureSkipVerify: true,
+				CipherSuites: []uint16{
+					tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+				},
+			}
+			sslOpts.EnableHostVerification = true
 		}
 		cluster.SslOpts = sslOpts
 	}
