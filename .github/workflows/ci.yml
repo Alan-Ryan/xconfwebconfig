@@ -19,14 +19,10 @@ jobs:
     services:
       cassandra:
         image: cassandra:4.1
-        env:
-          CASSANDRA_AUTHENTICATOR: PasswordAuthenticator
-          CASSANDRA_PASSWORD_SEEDER: "yes"
-          CASSANDRA_PASSWORD: cassandra
         ports:
           - 9042:9042
         options: >-
-          --health-cmd "cqlsh -u cassandra -p cassandra -e 'DESCRIBE CLUSTER'"
+          --health-cmd "cqlsh -e 'DESCRIBE CLUSTER'"
           --health-interval 10s
           --health-timeout 10s
           --health-retries 18
@@ -50,12 +46,8 @@ jobs:
       - name: Create test keyspace
         run: >-
           docker exec "${{ job.services.cassandra.id }}" cqlsh
-          -u cassandra -p cassandra -e
-          "CREATE KEYSPACE IF NOT EXISTS test_appds WITH replication =
+          -e "CREATE KEYSPACE IF NOT EXISTS test_appds WITH replication =
           {'class': 'SimpleStrategy', 'replication_factor': 1};"
 
       - name: Test
-        env:
-          DATABASE_USER: cassandra
-          DATABASE_PASSWORD: cassandra
         run: make test
