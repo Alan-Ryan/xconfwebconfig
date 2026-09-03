@@ -26,7 +26,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/carlescere/scheduler v0.0.0-20170109141437-ee74d2f83d82
 	github.com/go-akka/configuration v0.0.0-20200606091224-a002c0330665
-	github.com/gocql/gocql v1.6.0
+	github.com/gocql/gocql v1.7.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
