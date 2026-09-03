@@ -1,0 +1,61 @@
+name: Go CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      cassandra:
+        image: cassandra:4.1
+        env:
+          CASSANDRA_AUTHENTICATOR: PasswordAuthenticator
+          CASSANDRA_PASSWORD_SEEDER: "yes"
+          CASSANDRA_PASSWORD: cassandra
+        ports:
+          - 9042:9042
+        options: >-
+          --health-cmd "cqlsh -u cassandra -p cassandra -e 'DESCRIBE CLUSTER'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 18
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify module metadata
+        run: go mod tidy -diff
+
+      - name: Build
+        run: go build ./...
+
+      - name: Create test keyspace
+        run: >-
+          docker exec "${{ job.services.cassandra.id }}" cqlsh
+          -u cassandra -p cassandra -e
+          "CREATE KEYSPACE IF NOT EXISTS test_appds WITH replication =
+          {'class': 'SimpleStrategy', 'replication_factor': 1};"
+
+      - name: Test
+        env:
+          DATABASE_USER: cassandra
+          DATABASE_PASSWORD: cassandra
+        run: make test
