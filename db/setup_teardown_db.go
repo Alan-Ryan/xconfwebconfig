@@ -39,6 +39,8 @@ func (c *CassandraClient) SetUp() error {
 		var stmt string
 		if t == "XconfChangedKeys4" {
 			stmt = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s"."%s" (key bigint, columnName timeuuid, value blob, PRIMARY KEY (key, columnName))`, c.Keyspace, t)
+		} else if t == TABLE_LOCKS {
+			stmt = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s"."%s" (name text, locked_by text, locked_at timestamp, expires_at timestamp, PRIMARY KEY (name))`, c.Keyspace, t)
 		} else {
 			stmt = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s"."%s" (key text, column1 text, value blob, PRIMARY KEY (key, column1))`, c.Keyspace, t)
 		}
