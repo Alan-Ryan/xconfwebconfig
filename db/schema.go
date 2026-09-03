@@ -108,6 +108,7 @@ var AllTables = []string{
 	TABLE_LOGS,
 	TABLE_XCONF_CHANGED_KEYS,
 	TABLE_TAG,
+	TABLE_LOCKS,
 }
 
 // Two possible values for Key2FieldName
