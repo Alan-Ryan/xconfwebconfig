@@ -30,7 +30,7 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/mux v1.8.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/prometheus/client_golang v1.18.0
 	github.com/sirupsen/logrus v1.10.2
